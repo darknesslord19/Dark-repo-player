@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -116,7 +118,7 @@ val fetchJsLibs by tasks.registering {
     doLast {
         if (!out.exists() || out.length() < 1000) {
             out.parentFile.mkdirs()
-            java.net.URI("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js")
+            URI("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js")
                 .toURL().openStream().use { i -> out.outputStream().use { i.copyTo(it) } }
         }
     }
