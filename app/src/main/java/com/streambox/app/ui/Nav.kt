@@ -1,0 +1,36 @@
+package com.streambox.app.ui
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.streambox.app.TmdbItem
+import com.streambox.app.iptv.Playlist
+import com.streambox.app.plugins.CsCard
+
+sealed interface Route {
+    data object Home : Route
+    data object Search : Route
+    data object Iptv : Route
+    data object Extensions : Route
+    data object Settings : Route
+    data class TmdbDetail(val item: TmdbItem) : Route
+    data class CsDetail(val card: CsCard) : Route
+    data class IptvList(val playlist: Playlist) : Route
+}
+
+object Nav {
+    val stack = mutableStateListOf<Route>(Route.Home)
+    val current get() = stack.last()
+
+    /** Arama ekranına başka ekrandan gönderilen sorgu. */
+    var pendingQuery by mutableStateOf<String?>(null)
+
+    fun go(r: Route) { stack.add(r) }
+    fun tab(r: Route) { stack.clear(); stack.add(r) }
+    fun back(): Boolean = if (stack.size > 1) { stack.removeAt(stack.lastIndex); true } else false
+    fun search(q: String) { pendingQuery = q; tab(Route.Search) }
+
+    /** Ana sayfa rafları geri dönünce yeniden yüklenmesin. */
+    val homeCache = mutableMapOf<String, List<UiRow>>()
+}

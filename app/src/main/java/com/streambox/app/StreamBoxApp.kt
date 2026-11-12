@@ -1,0 +1,27 @@
+package com.streambox.app
+
+import android.app.Application
+import com.streambox.app.iptv.IptvStore
+import com.streambox.app.nuvio.NuvioRepoManager
+import com.streambox.app.plugins.CsBridge
+import com.streambox.app.plugins.PluginManager
+import com.streambox.app.plugins.RepoManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+class StreamBoxApp : Application() {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun onCreate() {
+        super.onCreate()
+        Settings.init(this)
+        RepoManager.init(this)
+        PluginManager.init(this)
+        NuvioRepoManager.init(this)
+        IptvStore.init(this)
+        runCatching { CsBridge.init(this) }.onFailure { AppLog.e("CloudStream başlatılamadı", it) }
+        scope.launch { PluginManager.loadAll(this@StreamBoxApp) }
+    }
+}
