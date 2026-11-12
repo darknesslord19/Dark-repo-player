@@ -41,7 +41,7 @@ fun SettingsScreen() {
             OutlinedTextField(lang, { lang = it }, singleLine = true, label = { Text("Dil (ör: tr-TR, en-US)") },
                 modifier = Modifier.fillMaxWidth().padding(14.dp, 8.dp))
             Row(Modifier.padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { Settings.setTmdbKey(key); Settings.setLanguage(lang); Nav.homeCache.clear(); key = Settings.tmdbKey }) { Text("Kaydet") }
+                Button(onClick = { Settings.updateTmdbKey(key); Settings.updateLanguage(lang); Nav.homeCache.clear(); key = Settings.tmdbKey }) { Text("Kaydet") }
                 OutlinedButton(onClick = { key = Settings.DEFAULT_TMDB_KEY }) { Text("Varsayılan") }
             }
             SectionTitle("Uygulama")

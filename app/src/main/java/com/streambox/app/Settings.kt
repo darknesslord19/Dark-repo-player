@@ -24,12 +24,12 @@ object Settings {
         language = prefs.getString("language", "tr-TR") ?: "tr-TR"
     }
 
-    fun setTmdbKey(v: String) {
+    fun updateTmdbKey(v: String) {
         tmdbKey = v.trim().ifBlank { DEFAULT_TMDB_KEY }
         prefs.edit().putString("tmdbKey", tmdbKey).apply()
     }
 
-    fun setLanguage(v: String) {
+    fun updateLanguage(v: String) {
         language = v.trim().ifBlank { "tr-TR" }
         prefs.edit().putString("language", language).apply()
     }
