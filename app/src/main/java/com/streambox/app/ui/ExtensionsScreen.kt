@@ -132,13 +132,13 @@ private val repoTabs = listOf(
 
 /** Yuvarlak çerçeveli ikon düğmesi; kumandayla seçilebilir. */
 @Composable
-private fun RoundAction(icon: ImageVector, desc: String, filled: Boolean = false, tint: Color = Color.White, size: Dp = 56.dp, onClick: () -> Unit) {
+private fun RoundAction(icon: ImageVector, desc: String, filled: Boolean = false, tint: Color = Color.White, size: Dp = 44.dp, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(18.dp))
+        Modifier.size(size).clip(RoundedCornerShape(14.dp))
             .background(if (filled) Gold else if (focused) Color(0xFF2A3042) else Color.Transparent)
-            .border(1.5.dp, if (focused) Color.White else if (filled) Color.Transparent else Color(0xFF4A4F5A), RoundedCornerShape(18.dp))
+            .border(1.5.dp, if (focused) Color.White else if (filled) Color.Transparent else Color(0xFF4A4F5A), RoundedCornerShape(14.dp))
             .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Icon(icon, desc, tint = if (filled) Color(0xFF1A1A1A) else tint, modifier = Modifier.size(size * 0.46f)) }
@@ -150,18 +150,20 @@ private fun BareAction(icon: ImageVector, desc: String, tint: Color = Color.Whit
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Box(
-        Modifier.size(48.dp).clip(CircleShape).background(if (focused) Color(0xFF2A3042) else Color.Transparent)
+        Modifier.size(40.dp).clip(CircleShape).background(if (focused) Color(0xFF2A3042) else Color.Transparent)
             .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Icon(icon, desc, tint = tint, modifier = Modifier.size(28.dp)) }
+    ) { Icon(icon, desc, tint = tint, modifier = Modifier.size(22.dp)) }
 }
 
 /** Eklenti/depo ikonu: görsel yoksa yapboz. */
 @Composable
-private fun PluginIcon(url: String?, size: Dp = 48.dp, fallback: ImageVector = Icons.Default.Extension) {
+private fun PluginIcon(url: String?, size: Dp = 36.dp, fallback: ImageVector = Icons.Default.Extension) {
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
-        Icon(fallback, null, tint = Color.White, modifier = Modifier.size(size * 0.85f))
-        if (!url.isNullOrBlank()) AsyncImage(url, null, modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(ECard))
+        Box(Modifier.size(size).clip(RoundedCornerShape(10.dp)).background(Color(0xFF262A33)), contentAlignment = Alignment.Center) {
+            Icon(fallback, null, tint = Color(0xFFC8CBD0), modifier = Modifier.size(size * 0.6f))
+        }
+        if (!url.isNullOrBlank()) AsyncImage(url, null, modifier = Modifier.size(size).clip(RoundedCornerShape(10.dp)))
     }
 }
 
@@ -170,13 +172,13 @@ private fun PluginIcon(url: String?, size: Dp = 48.dp, fallback: ImageVector = I
 private fun ECardBox(selected: Boolean = false, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(18.dp)
     Box(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(shape)
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(shape)
             .background(if (selected) Color(0xFF232A3A) else ECard)
             .border(1.5.dp, if (focused) Color.White else if (selected) Accent else Color.Transparent, shape)
             .then(if (onClick != null) Modifier.clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) { content() }
 }
 
@@ -196,7 +198,7 @@ private fun PageHeader(title: String, onBack: (() -> Unit)?, actions: @Composabl
     Row(Modifier.fillMaxWidth().padding(8.dp, 12.dp, 12.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) BareAction(Icons.AutoMirrored.Filled.ArrowBack, "Geri", onClick = onBack)
         else Spacer(Modifier.width(12.dp))
-        Text(title, fontSize = 30.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 8.dp))
         actions()
     }
@@ -235,11 +237,11 @@ private fun TextTabs(tabs: List<Pair<String, Int>>, selected: Int, onSelect: (In
             Column(
                 Modifier.clip(RoundedCornerShape(10.dp)).background(if (focused) Color(0xFF1E2230) else Color.Transparent)
                     .clickable(interactionSource = src, indication = LocalIndication.current) { onSelect(i) }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, fontSize = 17.sp, color = if (i == selected) Color.White else Color(0xFFB8BCC2),
+                    Text(label, fontSize = 15.sp, color = if (i == selected) Color.White else Color(0xFFB8BCC2),
                         fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Medium)
                     if (count > 0) Text(" $count", fontSize = 13.sp, color = Muted)
                 }
@@ -255,119 +257,104 @@ private fun TextTabs(tabs: List<Pair<String, Int>>, selected: Int, onSelect: (In
 @Composable
 fun ExtensionsScreen() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var tab by rememberSaveable { mutableIntStateOf(if (PluginManager.installed.isEmpty() && NuvioRepoManager.scrapers.isEmpty()) 1 else 0) }
-    var kind by rememberSaveable { mutableIntStateOf(0) } // 0 CloudStream, 1 Nuvio
     var search by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var adding by remember { mutableStateOf(false) }
-    var detail by remember { mutableStateOf<InstalledPlugin?>(null) }
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    val wide = isWide()
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            PageHeader("Eklentiler", null) {
-                if (PluginManager.needsRestart) BareAction(Icons.Default.RestartAlt, "Yeniden başlat", tint = Orange) { restartApp(context) }
-                BareAction(if (search) Icons.Default.Close else Icons.Default.Search, "Ara") { search = !search; if (!search) query = "" }
-            }
-            if (search) OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text("Eklenti ara…") },
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp))
-            UnderlineTabs(listOf("Yüklü", "Depolar"), tab) { tab = it }
+    // Depoya bağlı olmayan (dosyadan kurulan ya da deposu silinen) eklentiler
+    val repoUrls = RepoManager.repos.map { it.url }.toSet()
+    val local = PluginManager.installed.filter { it.repoUrl == null || it.repoUrl !in repoUrls }
+    val cs = RepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
+    val nv = NuvioRepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
 
-            // Toplu kurulum ilerlemesi
-            PluginManager.bulk?.let { b ->
-                Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 0.dp).clip(RoundedCornerShape(16.dp)).background(ECard).padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Kuruluyor ${b.done + 1} / ${b.total}", fontWeight = FontWeight.SemiBold)
-                        Text(b.current, color = Muted, fontSize = 12.sp, maxLines = 1)
-                        LinearProgressIndicator(progress = { (b.done + 1f) / b.total },
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = Gold)
-                    }
-                    BareAction(Icons.Default.Close, "Durdur") { PluginManager.cancelBulk() }
-                }
-            }
+    Column(Modifier.fillMaxSize()) {
+        PageHeader("Eklentiler", null) {
+            if (PluginManager.needsRestart) BareAction(Icons.Default.RestartAlt, "Yeniden başlat", tint = Orange) { restartApp(context) }
+            BareAction(if (search) Icons.Default.Close else Icons.Default.Search, "Ara") { search = !search; if (!search) query = "" }
+            AddRepoButton { adding = true }
+        }
+        if (search) OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text("Depo ara…") },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
 
-            if (tab == 0) {
-                // ------------------------------------------------ YÜKLÜ
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = BottomSpace)) {
-                    item {
-                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item { KindChip("CloudStream", PluginManager.installed.size, kind == 0) { kind = 0 } }
-                            item { KindChip("Nuvio", NuvioRepoManager.scrapers.count { it.enabled }, kind == 1) { kind = 1 } }
-                        }
-                    }
-                    if (kind == 0) {
-                        val list = PluginManager.installed.filter { query.isBlank() || it.name.contains(query, true) }
-                        val ok = PluginManager.installed.count { PluginManager.results[it.internalName]?.ok == true }
-                        item {
-                            SummaryRow("${PluginManager.installed.size} eklenti", "$ok çalışıyor · ${PluginManager.installed.size - ok} sorunlu") {
-                                if (PluginManager.installed.isNotEmpty()) RoundAction(Icons.Default.DeleteForever, "Hepsini kaldır") {
-                                    confirm = "Kurulu ${PluginManager.installed.size} eklentinin hepsi kaldırılsın mı?" to {
-                                        PluginManager.uninstallAll(context, PluginManager.installed.toList())
-                                    }
-                                }
-                                RoundAction(Icons.Default.FileOpen, "Telefondan .cs3", filled = PluginManager.installed.isEmpty()) { adding = true }
-                            }
-                        }
-                        if (list.isEmpty()) item { Message("Kurulu eklenti yok. \"Depolar\" sekmesinden bir depo ekleyip eklenti kur.") }
-                        items(list, key = { "i-" + it.internalName }) { p ->
-                            InstalledCard(p, onOpen = { detail = p }) {
-                                confirm = "\"${p.name}\" kaldırılsın mı?" to { PluginManager.uninstall(context, p) }
-                            }
-                        }
-                    } else {
-                        val list = NuvioRepoManager.scrapers.filter { it.enabled && (query.isBlank() || it.name.contains(query, true)) }
-                        item { SummaryRow("${list.size} etkin Nuvio eklentisi", "${NuvioRepoManager.scrapers.size} eklenti · ${NuvioRepoManager.repos.size} depo") {} }
-                        if (list.isEmpty()) item { Message("Etkin Nuvio eklentisi yok. \"Depolar\" sekmesinden bir Nuvio deposu ekle.") }
-                        items(list) { s -> ScraperCard(s) }
-                    }
+        // Özet
+        val ok = PluginManager.installed.count { PluginManager.results[it.internalName]?.ok == true }
+        Text(
+            "${RepoManager.repos.size + NuvioRepoManager.repos.size} depo · ${PluginManager.installed.size} CloudStream eklentisi" +
+                (if (PluginManager.installed.size - ok > 0) " (${PluginManager.installed.size - ok} sorunlu)" else "") +
+                " · ${NuvioRepoManager.scrapers.count { it.enabled }} Nuvio eklentisi",
+            color = Muted, fontSize = 12.sp, modifier = Modifier.padding(16.dp, 2.dp, 16.dp, 6.dp)
+        )
+
+        PluginManager.bulk?.let { b ->
+            Row(Modifier.fillMaxWidth().padding(12.dp, 4.dp).clip(RoundedCornerShape(14.dp)).background(ECard).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Kuruluyor ${b.done + 1} / ${b.total} · ${b.current}", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    LinearProgressIndicator(progress = { (b.done + 1f) / b.total },
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)), color = Gold)
                 }
-            } else {
-                // ------------------------------------------------ DEPOLAR
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 10.dp, bottom = BottomSpace + 70.dp)) {
-                    val cs = RepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
-                    val nv = NuvioRepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
-                    if (cs.isEmpty() && nv.isEmpty()) item {
-                        Message("Henüz depo yok. Sağ alttaki + düğmesiyle CloudStream ya da Nuvio deposu ekle.")
-                    }
-                    items(cs, key = { "cs-" + it.url }) { r ->
-                        RepoCard(r.name, "CloudStream", RepoManager.pluginCache[r.url]?.size, r.iconUrl,
-                            onOpen = { Nav.go(Route.RepoPage("cs", r.url)) }) {
-                            confirm = "\"${r.name}\" deposu silinsin mi? (Kurulu eklentiler kalır)" to { RepoManager.removeRepo(context, r) }
-                        }
-                    }
-                    items(nv, key = { "nv-" + it.url }) { r ->
-                        RepoCard(r.name, "Nuvio", NuvioRepoManager.scrapers.count { it.repoUrl == r.url }, null,
-                            onOpen = { Nav.go(Route.RepoPage("nuvio", r.url)) }) {
-                            confirm = "\"${r.name}\" Nuvio deposu silinsin mi?" to { NuvioRepoManager.removeRepo(r) }
-                        }
-                    }
-                }
+                BareAction(Icons.Default.Close, "Durdur") { PluginManager.cancelBulk() }
             }
         }
-        // + : depo ekle
-        if (tab == 1) {
-            val src = remember { MutableInteractionSource() }
-            val focused by src.collectIsFocusedAsState()
-            Row(
-                Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = BottomSpace - 8.dp)
-                    .clip(RoundedCornerShape(20.dp)).background(Gold)
-                    .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(20.dp))
-                    .clickable(interactionSource = src, indication = LocalIndication.current) { adding = true }
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Add, null, tint = Color(0xFF1A1A1A))
-                Text("Depo ekle", color = Color(0xFF1A1A1A), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(if (wide) 380.dp else 600.dp),
+            contentPadding = PaddingValues(top = 4.dp, bottom = BottomSpace),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (cs.isEmpty() && nv.isEmpty() && local.isEmpty()) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                    Message("Henüz depo yok. Sağ üstteki \"Depo ekle\" ile CloudStream ya da Nuvio deposu ekle.")
+                }
+            }
+            gridItems(cs, key = { "cs-" + it.url }) { r ->
+                val inst = PluginManager.installed.count { it.repoUrl == r.url }
+                RepoCard(r.name, "CloudStream · $inst kurulu" + (RepoManager.pluginCache[r.url]?.size?.let { " / $it" } ?: ""), r.iconUrl,
+                    onOpen = { Nav.go(Route.RepoPage("cs", r.url)) }) {
+                    confirm = "\"${r.name}\" deposu silinsin mi? (Kurulu eklentiler kalır)" to { RepoManager.removeRepo(context, r) }
+                }
+            }
+            gridItems(nv, key = { "nv-" + it.url }) { r ->
+                val list = NuvioRepoManager.scrapers.filter { it.repoUrl == r.url }
+                RepoCard(r.name, "Nuvio · ${list.count { it.enabled }} açık / ${list.size}", list.firstOrNull { it.logo != null }?.logo,
+                    onOpen = { Nav.go(Route.RepoPage("nuvio", r.url)) }) {
+                    confirm = "\"${r.name}\" Nuvio deposu silinsin mi?" to { NuvioRepoManager.removeRepo(r) }
+                }
+            }
+            if (local.isNotEmpty()) gridItems(listOf(Unit), key = { "local" }) {
+                RepoCard("Yerel eklentiler", "Depoya bağlı olmayan · ${local.size} eklenti", null,
+                    onOpen = { Nav.go(Route.RepoPage("local", "")) }, onDelete = null)
             }
         }
     }
 
-    if (adding) AddRepoDialog(onDismiss = { adding = false }) { tab = 1 }
-    detail?.let { p -> InstalledDetailDialog(p) { detail = null } }
+    if (adding) AddRepoDialog(onDismiss = { adding = false }) {}
     confirm?.let { (text, action) -> Confirm("Emin misin?", text, "Evet", action) { confirm = null } }
+}
+
+/** Izgara için items kısayolu. */
+private fun <T> androidx.compose.foundation.lazy.grid.LazyGridScope.gridItems(
+    list: List<T>, key: ((T) -> Any)? = null, content: @Composable (T) -> Unit,
+) = items(list.size, key = key?.let { k -> { i: Int -> k(list[i]) } }) { content(list[it]) }
+
+/** Üstteki "Depo ekle" düğmesi. */
+@Composable
+private fun AddRepoButton(onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val focused by src.collectIsFocusedAsState()
+    Row(
+        Modifier.padding(start = 4.dp).clip(RoundedCornerShape(12.dp)).background(Gold)
+            .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Add, null, tint = Color(0xFF1A1A1A), modifier = Modifier.size(18.dp))
+        Text("Depo ekle", color = Color(0xFF1A1A1A), fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
+    }
 }
 
 @Composable
@@ -389,25 +376,26 @@ private fun KindChip(label: String, count: Int, selected: Boolean, onClick: () -
 /** "15 eklenti / 15 yüklü · 0 yüklenmedi" satırı + sağda düğmeler. */
 @Composable
 private fun SummaryRow(title: String, subtitle: String, actions: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color(0xFF15171C)).padding(20.dp, 14.dp, 16.dp, 14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFF15171C)).padding(16.dp, 10.dp, 12.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, fontSize = 15.sp, color = Color(0xFFB8BCC2))
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, fontSize = 13.sp, color = Color(0xFFB8BCC2))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { actions() }
     }
 }
 
 @Composable
-private fun RepoCard(name: String, kind: String, count: Int?, icon: String?, onOpen: () -> Unit, onDelete: () -> Unit) {
+private fun RepoCard(name: String, subtitle: String, icon: String?, onOpen: () -> Unit, onDelete: (() -> Unit)?) {
     ECardBox(onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PluginIcon(icon, 46.dp, Icons.Default.FolderSpecial)
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(name, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(kind, count?.let { "$it eklenti" }).joinToString(" · "), color = Muted, fontSize = 13.sp)
+            PluginIcon(icon, 40.dp, Icons.Default.FolderSpecial)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            BareAction(Icons.Default.Delete, "Depoyu sil", onClick = onDelete)
+            if (onDelete != null) BareAction(Icons.Default.Delete, "Depoyu sil", tint = Color(0xFFB8BCC2), onClick = onDelete)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted)
         }
     }
 }
@@ -422,12 +410,12 @@ private fun InstalledCard(p: InstalledPlugin, onOpen: () -> Unit, onDelete: () -
             Box {
                 PluginIcon(p.iconUrl)
                 val dot = when { !p.enabled -> Muted; r == null -> Orange; r.ok -> Green; else -> Red }
-                Box(Modifier.align(Alignment.BottomEnd).size(14.dp).clip(CircleShape).background(ECard).padding(2.dp).clip(CircleShape).background(dot))
+                Box(Modifier.align(Alignment.BottomEnd).size(12.dp).clip(CircleShape).background(ECard).padding(2.dp).clip(CircleShape).background(dot))
             }
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(p.name, fontSize = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(p.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(listOfNotNull("v${p.version}", sizeText(PluginManager.sizeOf(context, p))).joinToString("  "),
-                    fontSize = 16.sp, color = Color(0xFFB8BCC2))
+                    fontSize = 13.sp, color = Color(0xFFB8BCC2))
                 Text(
                     when { !p.enabled -> "Devre dışı"; r == null -> "Bekliyor"; r.ok -> r.providers.joinToString(", ").ifBlank { "Yüklendi" }; else -> "Hata · ayrıntı için dokun" },
                     fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -478,10 +466,10 @@ private fun ScraperCard(s: NuvioScraper) {
     ECardBox {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PluginIcon(s.logo)
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                Text(s.name, fontSize = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(s.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("${flagOf(s.language)} ${langName(s.language)}  ${if (s.version.isNotBlank()) "v${s.version}" else ""}",
-                    fontSize = 16.sp, color = Color(0xFFB8BCC2), maxLines = 1)
+                    fontSize = 13.sp, color = Color(0xFFB8BCC2), maxLines = 1)
                 Text(s.supportedTypes.joinToString(", ") { if (it == "tv") "Dizi" else if (it == "movie") "Film" else it } +
                     if (s.description.isNotBlank()) " · ${s.description}" else "",
                     fontSize = 13.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -557,7 +545,37 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
 
 @Composable
 fun RepoPageScreen(route: Route.RepoPage) {
-    if (route.kind == "nuvio") NuvioRepoPage(route.url) else CsRepoPage(route.url)
+    when (route.kind) {
+        "nuvio" -> NuvioRepoPage(route.url)
+        "local" -> LocalPluginsPage()
+        else -> CsRepoPage(route.url)
+    }
+}
+
+/** Depoya bağlı olmayan kurulu eklentiler. */
+@Composable
+private fun LocalPluginsPage() {
+    val context = LocalContext.current
+    var detail by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    val repoUrls = RepoManager.repos.map { it.url }.toSet()
+    val local = PluginManager.installed.filter { it.repoUrl == null || it.repoUrl !in repoUrls }
+    Column(Modifier.fillMaxSize()) {
+        PageHeader("Yerel eklentiler", onBack = { Nav.back() }) {
+            BareAction(Icons.Default.FileOpen, ".cs3 dosyası kur") { adding = true }
+        }
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(if (isWide()) 380.dp else 600.dp),
+            contentPadding = PaddingValues(top = 4.dp, bottom = BottomSpace), modifier = Modifier.fillMaxSize()
+        ) {
+            if (local.isEmpty()) item { Message("Yerel eklenti yok") }
+            gridItems(local, key = { "l-" + it.internalName }) { p ->
+                InstalledCard(p, onOpen = { detail = p }) { PluginManager.uninstall(context, p) }
+            }
+        }
+    }
+    detail?.let { p -> InstalledDetailDialog(p) { detail = null } }
+    if (adding) AddRepoDialog(onDismiss = { adding = false }) {}
 }
 
 @Composable
@@ -574,6 +592,7 @@ private fun CsRepoPage(url: String) {
     val installing = remember { mutableStateMapOf<String, Boolean>() }
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<InstalledPlugin?>(null) }
 
     LaunchedEffect(url) {
         if (repo != null && RepoManager.pluginCache[url] == null) {
@@ -635,24 +654,36 @@ private fun CsRepoPage(url: String) {
         PluginManager.bulk?.let { b ->
             LinearProgressIndicator(progress = { (b.done + 1f) / b.total }, color = Gold, modifier = Modifier.fillMaxWidth().height(3.dp))
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = BottomSpace)) {
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(if (isWide()) 380.dp else 600.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = BottomSpace), modifier = Modifier.fillMaxSize()
+        ) {
             if (loading && all.isEmpty()) item { Loading() }
             if (!loading && shown.isEmpty()) item { Message("Eklenti yok") }
-            items(shown, key = { "rp-" + it.internalName + it.url }) { p ->
+            gridItems(shown) { p ->
                 val inst = PluginManager.find(p.internalName)
                 val isSel = p.internalName in selected
-                ECardBox(selected = isSel, onClick = if (selecting) ({ if (isSel) selected.remove(p.internalName) else selected.add(p.internalName) }) else null) {
+                ECardBox(selected = isSel, onClick = when {
+                    selecting -> ({ if (isSel) selected.remove(p.internalName) else selected.add(p.internalName) })
+                    inst != null -> ({ detail = inst })
+                    else -> null
+                }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (selecting) Icon(if (isSel) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank, null,
                             tint = if (isSel) Gold else Muted, modifier = Modifier.padding(end = 12.dp).size(26.dp))
                         PluginIcon(p.iconUrl)
-                        Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                            Text(p.name, fontSize = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(p.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${flagOf(p.language)} ${langName(p.language)}  v${p.version}  ${sizeText(p.fileSize) ?: ""}",
-                                fontSize = 16.sp, color = Color(0xFFB8BCC2), maxLines = 1)
-                            if (!p.description.isNullOrBlank()) Text(p.description, fontSize = 14.sp, color = Color(0xFFB8BCC2),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                fontSize = 13.sp, color = Color(0xFFB8BCC2), maxLines = 1)
+                            if (!p.description.isNullOrBlank()) Text(p.description, fontSize = 12.sp, color = Muted,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (p.status == 0) Text("Kapalı (depo sahibi devre dışı bıraktı)", fontSize = 12.sp, color = Red)
+                            inst?.let { i ->
+                                val r = PluginManager.results[i.internalName]
+                                if (r != null && !r.ok) Text("Hata · ayrıntı için dokun", fontSize = 12.sp, color = Red)
+                                if (!i.enabled) Text("Devre dışı", fontSize = 12.sp, color = Muted)
+                            }
                         }
                         if (!selecting) when {
                             installing[p.internalName] == true -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = Gold)
@@ -669,6 +700,7 @@ private fun CsRepoPage(url: String) {
         }
     }
     confirm?.let { (text, action) -> Confirm("Emin misin?", text, "Kaldır", action) { confirm = null } }
+    detail?.let { p -> InstalledDetailDialog(p) { detail = null } }
 }
 
 @Composable
@@ -699,9 +731,12 @@ private fun NuvioRepoPage(url: String) {
             RoundAction(Icons.Default.PowerSettingsNew, "Hepsini aç", filled = true) { shown.forEach { NuvioRepoManager.setEnabled(it, true) } }
             RoundAction(Icons.Default.Close, "Hepsini kapat") { shown.forEach { NuvioRepoManager.setEnabled(it, false) } }
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = BottomSpace)) {
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(if (isWide()) 380.dp else 600.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = BottomSpace), modifier = Modifier.fillMaxSize()
+        ) {
             if (shown.isEmpty()) item { Message("Eklenti yok") }
-            items(shown) { s -> ScraperCard(s) }
+            gridItems(shown) { s -> ScraperCard(s) }
         }
     }
 }
