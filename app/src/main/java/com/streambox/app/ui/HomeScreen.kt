@@ -159,7 +159,7 @@ fun HomeScreen() {
             if (pl == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
             rows = null; error = null
             val all = runCatching { com.streambox.app.iptv.IptvStore.channels(pl) }.getOrDefault(emptyList())
-            val ctx = com.streambox.app.StreamBoxApp.instance
+            val ctx: android.content.Context? = com.lagradost.cloudstream3.CommonActivity.activity ?: com.streambox.app.StreamBoxApp.instance
             val result = all.groupBy { it.group }.map { (g, list) ->
                 fun card(i: Int) = list[i].let { ch ->
                     UiCard("iptv-${ch.url}", ch.name, ch.logo, g) {

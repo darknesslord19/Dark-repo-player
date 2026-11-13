@@ -91,7 +91,10 @@ class PlayerActivity : ComponentActivity() {
         fun start(context: Context, items: List<PlayItem>, index: Int) {
             pendingList = items
             pendingIndex = index.coerceIn(0, (items.size - 1).coerceAtLeast(0))
-            context.startActivity(Intent(context, PlayerActivity::class.java))
+            // Etkinlik dışından (ör. uygulama bağlamı) açılırsa yeni görev bayrağı şart; yoksa uygulama çöker
+            val intent = Intent(context, PlayerActivity::class.java)
+            if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
         }
     }
 
