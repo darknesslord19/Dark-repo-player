@@ -153,6 +153,32 @@ fun HomeScreen() {
         if (isNuvio && selected != "nuvio:*" && NuvioRepoManager.repos.none { "nuvio:" + it.url == selected }) {
             Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect
         }
+        // IPTV hesabı: kategoriler raf olarak
+        if (selected.startsWith("iptv:")) {
+            val pl = com.streambox.app.iptv.IptvStore.playlists.firstOrNull { "iptv:" + it.id == selected }
+            if (pl == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
+            rows = null; error = null
+            val all = runCatching { com.streambox.app.iptv.IptvStore.channels(pl) }.getOrDefault(emptyList())
+            val ctx = com.streambox.app.StreamBoxApp.instance
+            val result = all.groupBy { it.group }.map { (g, list) ->
+                fun card(i: Int) = list[i].let { ch ->
+                    UiCard("iptv-${ch.url}", ch.name, ch.logo, g) {
+                        if (ctx != null) {
+                            com.streambox.app.iptv.IptvStore.markWatched(ch.url)
+                            val items = list.map { com.streambox.app.player.PlayItem(it.name, it.url, it.headers, live = true, label = it.group) }
+                            com.streambox.app.player.PlayerActivity.start(ctx, items, i)
+                        }
+                    }
+                }
+                UiRow("$g · ${list.size}", (0 until minOf(30, list.size)).map { card(it) }) { page ->
+                    val from = (page - 1) * 30
+                    (from until minOf(from + 30, list.size)).map { card(it) }
+                }
+            }
+            Nav.homeCache[catalogKey] = result
+            rows = result
+            return@LaunchedEffect
+        }
         val catalog = if (selected.startsWith("catalog:")) CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected } else null
         if (selected.startsWith("catalog:") && catalog == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
         if (catalog != null) {
@@ -203,6 +229,7 @@ fun HomeScreen() {
         selected == TMDB_SOURCE -> "Keşfet"
         selected == "nuvio:*" -> "Nuvio"
         isNuvio -> NuvioRepoManager.repos.firstOrNull { "nuvio:" + it.url == selected }?.name ?: "Nuvio"
+        selected.startsWith("iptv:") -> com.streambox.app.iptv.IptvStore.playlists.firstOrNull { "iptv:" + it.id == selected }?.name ?: "Canlı TV"
         selected.startsWith("catalog:") -> CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected }?.name ?: "Katalog"
         else -> selected
     }
@@ -362,6 +389,25 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
             LazyColumn(Modifier.fillMaxWidth().height(520.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
                     SourceRow("Keşfet", "TMDB kataloğu · tüm Nuvio eklentileri", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
+                }
+                // IPTV hesapları (Canlı TV'de "ana sayfada göster" açık olanlar)
+                val tvs = com.streambox.app.iptv.IptvStore.playlists.filter { it.onHome && (query.isBlank() || it.name.contains(query, true)) }
+                if (tvs.isNotEmpty() && (category == 0 || categories[category].first == "Canlı TV")) {
+                    item(key = "g-iptv") {
+                        Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
+                                Text("TV", color = Color(0xFFFF3B30), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                            Text("CANLI TV", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
+                                modifier = Modifier.padding(start = 12.dp).weight(1f))
+                            Text("${tvs.size}", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    items(tvs) { pl ->
+                        val st = com.streambox.app.iptv.IptvStore.stats[pl.id]
+                        SourceRow(pl.name, "IPTV · ${pl.kind}" + (st?.let { " · ${it.channels} kanal" } ?: ""),
+                            Icons.Default.Explore, selected == "iptv:" + pl.id) { onPick("iptv:" + pl.id) }
+                    }
                 }
                 // Stremio katalog eklentileri
                 val cats = CatalogManager.addons.filter { query.isBlank() || it.name.contains(query, true) }

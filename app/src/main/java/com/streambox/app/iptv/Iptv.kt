@@ -18,7 +18,16 @@ data class Channel(
     val headers: Map<String, String>,
 )
 
-data class Playlist(val id: String, val name: String, val url: String?)
+data class Playlist(val id: String, val name: String, val url: String?, val onHome: Boolean = true) {
+    val kind: String get() = when {
+        url == null -> "Dosya"
+        url.contains("get.php?username=") -> "Xtream"
+        else -> "M3U"
+    }
+}
+
+/** Liste özeti: kanal ve kategori sayısı. */
+data class PlaylistStats(val channels: Int, val groups: Int)
 
 object M3u {
     private val ATTR = Regex("([\\w-]+)=\"([^\"]*)\"")
@@ -98,7 +107,7 @@ object IptvStore {
         val arr = JSONArray(appContext.getSharedPreferences("iptv", 0).getString("list", "[]"))
         playlists.clear()
         for (i in 0 until arr.length()) arr.getJSONObject(i).let {
-            playlists += Playlist(it.getString("id"), it.getString("name"), it.optString("url").ifBlank { null })
+            playlists += Playlist(it.getString("id"), it.getString("name"), it.optString("url").ifBlank { null }, it.optBoolean("onHome", true))
         }
         val prefs = appContext.getSharedPreferences("iptv", 0)
         favorites.clear(); favorites.addAll(JSONArray(prefs.getString("favorites", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } })
@@ -129,7 +138,7 @@ object IptvStore {
 
     private fun save() {
         val arr = JSONArray()
-        playlists.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("url", it.url ?: "")) }
+        playlists.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("url", it.url ?: "").put("onHome", it.onHome)) }
         appContext.getSharedPreferences("iptv", 0).edit().putString("list", arr.toString()).apply()
     }
 
@@ -155,6 +164,7 @@ object IptvStore {
     /** Kanalları getirir; adresli listeler [refresh] ile yeniden indirilir. */
     suspend fun channels(p: Playlist, refresh: Boolean = false): List<Channel> = withContext(Dispatchers.IO) {
         val f = File(dir(), p.id + ".m3u")
+        if (refresh) withContext(Dispatchers.Main) { stats.remove(p.id) }
         if ((refresh || !f.exists()) && p.url != null) runCatching {
             f.writeText(fetchWithUas(p.url))
         }
@@ -168,6 +178,21 @@ object IptvStore {
             try { return Net.getText(url, mapOf("User-Agent" to ua)) } catch (e: Exception) { last = e }
         }
         throw last ?: IllegalStateException("Liste indirilemedi")
+    }
+
+    /** Hesap → kanal/kategori sayısı (ekranda gösterim için). */
+    val stats = androidx.compose.runtime.mutableStateMapOf<String, PlaylistStats>()
+
+    suspend fun loadStats(p: Playlist) {
+        if (stats.containsKey(p.id)) return
+        val list = channels(p)
+        withContext(Dispatchers.Main) { stats[p.id] = PlaylistStats(list.size, list.map { it.group }.distinct().size) }
+    }
+
+    /** Ana sayfa kaynak seçicide gösterilsin mi? */
+    fun setOnHome(p: Playlist, on: Boolean) {
+        val i = playlists.indexOf(p)
+        if (i >= 0) { playlists[i] = p.copy(onHome = on); save() }
     }
 
     fun rename(p: Playlist, name: String) {
@@ -184,6 +209,7 @@ object IptvStore {
     }
 
     fun remove(p: Playlist) {
+        stats.remove(p.id)
         File(dir(), p.id + ".m3u").delete()
         playlists.remove(p); save()
     }
