@@ -162,7 +162,17 @@ object IptvStore {
     }
 
     /** Kanalları getirir; adresli listeler [refresh] ile yeniden indirilir. */
-    suspend fun channels(p: Playlist, refresh: Boolean = false): List<Channel> = withContext(Dispatchers.IO) {
+    /** Bellekteki kanal listeleri (her açılışta dosyayı yeniden ayrıştırmamak için). */
+    private val memo = java.util.concurrent.ConcurrentHashMap<String, List<Channel>>()
+
+    suspend fun channels(p: Playlist, refresh: Boolean = false): List<Channel> {
+        if (!refresh) memo[p.id]?.let { return it }
+        val list = loadChannels(p, refresh)
+        memo[p.id] = list
+        return list
+    }
+
+    private suspend fun loadChannels(p: Playlist, refresh: Boolean): List<Channel> = withContext(Dispatchers.IO) {
         val f = File(dir(), p.id + ".m3u")
         if (refresh) withContext(Dispatchers.Main) { stats.remove(p.id) }
         if ((refresh || !f.exists()) && p.url != null) runCatching {
@@ -210,6 +220,7 @@ object IptvStore {
 
     fun remove(p: Playlist) {
         stats.remove(p.id)
+        memo.remove(p.id)
         File(dir(), p.id + ".m3u").delete()
         playlists.remove(p); save()
     }

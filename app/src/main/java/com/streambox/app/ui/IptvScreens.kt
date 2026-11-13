@@ -40,6 +40,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.LiveTv
@@ -121,143 +125,271 @@ fun isWide(): Boolean {
 
 // ======================================================================= Hesaplar
 
-/** Hesap kartı: renkli degrade, ad, tür, kanal/kategori sayısı; düzenleme modunda işlemler. */
+/** Renkli kısaltma kutusu. */
 @Composable
-private fun AccountCard(p: Playlist, editing: Boolean, onOpen: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
+private fun AccountAvatar(p: Playlist, size: androidx.compose.ui.unit.Dp = 54.dp) {
+    Box(
+        Modifier.size(size).clip(RoundedCornerShape(14.dp))
+            .background(Brush.linearGradient(paletteOf(p), start = Offset(0f, 0f), end = Offset(160f, 160f))),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Color.White.copy(alpha = 0.09f), radius = this.size.width * 0.42f, center = Offset(this.size.width * 0.95f, this.size.height * 0.02f))
+        }
+        Text(p.name.filter { !it.isWhitespace() }.take(2).uppercase(), color = Color.White, fontWeight = FontWeight.Black,
+            fontSize = (size.value * 0.34f).sp)
+    }
+}
+
+@Composable
+private fun SmallChip(text: String, bg: Color, fg: Color) {
+    Text(text, color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 7.dp, vertical = 3.dp))
+}
+
+/** Hesap satırı: kısaltma, ad, kanal/kategori sayısı, etiketler ve ⋮ düğmesi. */
+@Composable
+private fun AccountRow(p: Playlist, onOpen: () -> Unit, onMore: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val colors = paletteOf(p)
     val stats = IptvStore.stats[p.id]
     LaunchedEffect(p.id) { runCatching { IptvStore.loadStats(p) } }
-    val shape = RoundedCornerShape(22.dp)
-    Column(
-        Modifier.fillMaxWidth().scale(if (focused) 1.03f else 1f).clip(shape)
-            .background(Color(0xFF16181E))
-            .border(2.dp, if (focused) Color.White else Color(0x14FFFFFF), shape)
-            .clickable(interactionSource = src, indication = LocalIndication.current) { if (editing) onRename() else onOpen() }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp).clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF171A21))
+            .border(1.5.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(18.dp))
+            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onOpen)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Üst renkli alan
-        Box(Modifier.fillMaxWidth().height(96.dp)
-            .background(Brush.linearGradient(colors, start = Offset(0f, 0f), end = Offset(600f, 300f)))) {
-            Canvas(Modifier.fillMaxSize()) {
-                drawCircle(Color.White.copy(alpha = 0.08f), radius = size.height * 0.55f, center = Offset(size.width * 0.85f, size.height * 0.15f))
-                drawCircle(Color.White.copy(alpha = 0.06f), radius = size.height * 0.28f, center = Offset(size.width * 0.12f, size.height * 0.95f))
-            }
-            Text(p.name.take(2).uppercase(), color = Color.White.copy(alpha = 0.9f), fontSize = 30.sp, fontWeight = FontWeight.Black,
-                modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp))
-            Text(p.kind.uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x55000000)).padding(horizontal = 7.dp, vertical = 3.dp))
-            if (p.onHome) Text("ANA SAYFADA", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(6.dp))
-                    .background(Accent.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
-        }
-        // Alt bilgi
-        Column(Modifier.fillMaxWidth().padding(14.dp, 10.dp, 14.dp, 12.dp)) {
+        AccountAvatar(p)
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(p.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                stats?.let { "${it.channels} kanal · ${it.groups} kategori" } ?: "Yükleniyor…",
-                color = Muted, fontSize = 12.sp, maxLines = 1
+            Text(stats?.let { "%,d kanal · %d kategori".format(it.channels, it.groups).replace(',', '.') } ?: "Yükleniyor…",
+                color = Muted, fontSize = 12.5.sp, maxLines = 1)
+            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SmallChip(p.kind.uppercase(), Color(0xFF23272F), Color(0xFFC8CBD0))
+                if (p.onHome) SmallChip("ANA SAYFADA", Accent.copy(alpha = 0.18f), Color(0xFF9DBDFF))
+                else SmallChip("GİZLİ", Color(0xFF23272F), Color(0xFF6E737B))
+            }
+        }
+        val msrc = remember { MutableInteractionSource() }
+        val mfocused by msrc.collectIsFocusedAsState()
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (mfocused) Color(0xFF2A3042) else Color.Transparent)
+                .border(1.5.dp, if (mfocused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+                .clickable(interactionSource = msrc, indication = LocalIndication.current, onClick = onMore),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Default.MoreVert, "Hesap menüsü", tint = Color(0xFFC8CBD0)) }
+    }
+}
+
+/** ⋮ menüsü: ana sayfada göster, yenile, ad değiştir, sil. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountSheet(p: Playlist, onDismiss: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val current = IptvStore.playlists.firstOrNull { it.id == p.id } ?: p
+    val stats = IptvStore.stats[p.id]
+    var refreshing by remember { mutableStateOf(false) }
+
+    @Composable
+    fun SheetRow(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, title: String, sub: String?, danger: Boolean = false,
+                 trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+        val src = remember { MutableInteractionSource() }
+        val focused by src.collectIsFocusedAsState()
+        Row(
+            Modifier.fillMaxWidth().background(if (focused) Color(0xFF222B3D) else Color.Transparent)
+                .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(19.dp))
+            }
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(title, fontSize = 15.sp, color = if (danger) Color(0xFFFF5A52) else Color.White)
+                sub?.let { Text(it, fontSize = 12.sp, color = Muted) }
+            }
+            trailing?.invoke()
+        }
+    }
+
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF16181E),
+        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 6.dp).size(42.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3F49))) }
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(20.dp, 4.dp, 20.dp, 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                AccountAvatar(current, 46.dp)
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text(current.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(current.kind + (stats?.let { " · ${it.channels} kanal · ${it.groups} kategori" } ?: ""), fontSize = 12.sp, color = Muted)
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF22262E)))
+            SheetRow(Icons.Default.Home, Accent, "Ana sayfada göster", "Kaynak seçicide \"Canlı TV\" altında", trailing = {
+                androidx.compose.material3.Switch(current.onHome, { IptvStore.setOnHome(current, it) },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Accent))
+            }) { IptvStore.setOnHome(current, !current.onHome) }
+            if (current.url != null) SheetRow(Icons.Default.Refresh, Color(0xFF34C759), "Listeyi yenile",
+                if (refreshing) "Yenileniyor…" else "Kanalları sunucudan yeniden indir") {
+                if (!refreshing) {
+                    refreshing = true
+                    scope.launch {
+                        runCatching { IptvStore.channels(current, refresh = true); IptvStore.loadStats(current) }
+                        Nav.homeCache.remove("iptv:" + current.id)
+                        refreshing = false
+                    }
+                }
+            }
+            SheetRow(Icons.Default.Edit, Color(0xFFFF9F0A), "Adını değiştir", null, onClick = onRename)
+            SheetRow(Icons.Default.Delete, Color(0xFFFF5A52), "Hesabı sil", null, danger = true, onClick = onDelete)
+        }
+    }
+}
+
+/** IPTV giriş ekranı: hesap satırları, tüm hesaplarda arama, Devam et şeridi. */
+@Composable
+fun IptvScreen() {
+    val context = LocalContext.current
+    var adding by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf<Playlist?>(null) }
+    var renaming by remember { mutableStateOf<Playlist?>(null) }
+    var deleting by remember { mutableStateOf<Playlist?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val wide = isWide()
+
+    // Arama ve "Devam et" için tüm hesapların kanalları (bellekte önbellekli)
+    var all by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    LaunchedEffect(IptvStore.playlists.size) {
+        all = IptvStore.playlists.flatMap { p -> runCatching { IptvStore.channels(p) }.getOrDefault(emptyList()) }
+    }
+    val byUrl = remember(all) { all.associateBy { it.url } }
+    val recent = IptvStore.recents.mapNotNull { byUrl[it] }.take(20)
+    val results = remember(all, query) {
+        if (query.trim().length < 2) emptyList() else all.filter { it.name.contains(query.trim(), true) }.take(300)
+    }
+    val totalChannels = IptvStore.playlists.sumOf { IptvStore.stats[it.id]?.channels ?: 0 }
+
+    fun play(list: List<Channel>, i: Int) {
+        IptvStore.markWatched(list[i].url)
+        PlayerActivity.start(context, list.map { PlayItem(it.name, it.url, it.headers, live = true, label = it.group) }, i)
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(if (wide) 140.dp else 104.dp),
+        contentPadding = PaddingValues(bottom = BottomSpace),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        val full: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> androidx.compose.foundation.lazy.grid.GridItemSpan =
+            { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
+        // Başlık
+        item(span = full) {
+            Row(Modifier.fillMaxWidth().padding(18.dp, 14.dp, 16.dp, 0.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("Canlı TV", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        if (IptvStore.playlists.isEmpty()) "IPTV hesabı ekleyerek başla"
+                        else "${IptvStore.playlists.size} hesap" + if (totalChannels > 0) " · %,d kanal".format(totalChannels).replace(',', '.') else "",
+                        color = Muted, fontSize = 12.5.sp
+                    )
+                }
+                val src = remember { MutableInteractionSource() }
+                val focused by src.collectIsFocusedAsState()
+                Row(
+                    Modifier.padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).background(Accent)
+                        .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+                        .clickable(interactionSource = src, indication = LocalIndication.current) { adding = true }
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Text("Hesap ekle", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+        // Arama
+        if (IptvStore.playlists.isNotEmpty()) item(span = full) {
+            val clear: (@Composable () -> Unit)? = if (query.isNotEmpty()) {
+                { Icon(Icons.Default.Close, "Temizle", tint = Muted, modifier = Modifier.clip(CircleShape).clickable { query = "" }.padding(8.dp)) }
+            } else null
+            OutlinedTextField(
+                query, { query = it }, singleLine = true, placeholder = { Text("Tüm hesaplarda kanal ara…", fontSize = 14.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) },
+                trailingIcon = clear,
+                shape = RoundedCornerShape(14.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color(0xFF171A21), focusedContainerColor = Color(0xFF171A21), unfocusedBorderColor = Color(0xFF262A33)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp)
             )
-            if (editing) {
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    MiniAction(Icons.Default.Edit, "Ad", onClick = onRename)
-                    MiniAction(if (p.onHome) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        if (p.onHome) "Gizle" else "Göster") { IptvStore.setOnHome(p, !p.onHome) }
-                    Spacer(Modifier.weight(1f))
-                    MiniAction(Icons.Default.Delete, "Sil", Color(0xFFFF6B6B), onDelete)
+        }
+
+        if (query.trim().length >= 2) {
+            // Arama sonuçları
+            item(span = full) { SectionLabel("SONUÇLAR · ${results.size}") }
+            if (results.isEmpty()) item(span = full) { Message("Eşleşen kanal yok") }
+            items(results.size) { i ->
+                Box(Modifier.padding(horizontal = 4.dp)) {
+                    ChannelCard(results[i], results[i].url in IptvStore.favorites, onClick = { play(results, i) },
+                        onLongClick = { IptvStore.toggleFavorite(results[i].url) })
+                }
+            }
+        } else {
+            // Hesaplar
+            if (IptvStore.playlists.isEmpty()) {
+                item(span = full) {
+                    Column(Modifier.fillMaxWidth().padding(top = 70.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(72.dp).clip(CircleShape).background(Accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.LiveTv, null, tint = Accent, modifier = Modifier.size(34.dp))
+                        }
+                        Text("Henüz hesap yok", fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.padding(top = 14.dp))
+                        Text("M3U adresi, Xtream bilgileri ya da dosya ile ekleyebilirsin.", color = Muted, fontSize = 13.sp,
+                            textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp, 4.dp))
+                    }
+                }
+            } else {
+                item(span = full) { SectionLabel("HESAPLAR") }
+                item(span = full) {
+                    // Telefonda tek, TV'de iki sütun
+                    val rows = if (wide) IptvStore.playlists.chunked(2) else IptvStore.playlists.map { listOf(it) }
+                    Column {
+                        rows.forEach { pair ->
+                            Row(Modifier.fillMaxWidth()) {
+                                pair.forEach { p ->
+                                    Box(Modifier.weight(1f)) { AccountRow(p, onOpen = { Nav.go(Route.IptvList(p)) }, onMore = { menu = p }) }
+                                }
+                                if (pair.size == 1 && wide) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                if (recent.isNotEmpty()) {
+                    item(span = full) { SectionLabel("DEVAM ET") }
+                    item(span = full) {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(recent.size) { i ->
+                                Box(Modifier.width(if (wide) 120.dp else 92.dp)) {
+                                    ChannelCard(recent[i], recent[i].url in IptvStore.favorites, onClick = { play(recent, i) },
+                                        onLongClick = { IptvStore.toggleFavorite(recent[i].url) })
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun MiniAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val focused by src.collectIsFocusedAsState()
-    Row(
-        Modifier.clip(RoundedCornerShape(10.dp)).background(if (focused) Color(0xFF2A3042) else Color(0xFF22252D))
-            .border(1.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(10.dp))
-            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(15.dp))
-        Text(label, color = tint, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
-    }
-}
-
-/** "Hesap ekle" kartı (kesik çerçeveli). */
-@Composable
-private fun AddAccountCard(onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val focused by src.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(22.dp)
-    Column(
-        Modifier.fillMaxWidth().height(160.dp).scale(if (focused) 1.03f else 1f).clip(shape)
-            .background(Color(0xFF121419))
-            .border(2.dp, if (focused) Color.White else Color(0xFF2E333D), shape)
-            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-    ) {
-        Box(Modifier.size(52.dp).clip(CircleShape).background(Accent.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Add, null, tint = Accent, modifier = Modifier.size(28.dp))
-        }
-        Text("Hesap ekle", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
-        Text("M3U · Xtream · Dosya", color = Muted, fontSize = 12.sp)
-    }
-}
-
-/** IPTV giriş ekranı: hesap kartları, ekleme, düzenleme. */
-@Composable
-fun IptvScreen() {
-    var editing by remember { mutableStateOf(false) }
-    var adding by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf<Playlist?>(null) }
-    var deleting by remember { mutableStateOf<Playlist?>(null) }
-    val wide = isWide()
-
-    Column(Modifier.fillMaxSize()) {
-        // Başlık
-        Row(Modifier.fillMaxWidth().padding(20.dp, 14.dp, 14.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Canlı TV", fontSize = 28.sp, fontWeight = FontWeight.Black)
-                Text(if (IptvStore.playlists.isEmpty()) "IPTV hesabı ekleyerek başla" else "${IptvStore.playlists.size} hesap · bir hesap seç",
-                    color = Muted, fontSize = 13.sp)
-            }
-            val src = remember { MutableInteractionSource() }
-            val focused by src.collectIsFocusedAsState()
-            if (IptvStore.playlists.isNotEmpty()) Row(
-                Modifier.clip(RoundedCornerShape(12.dp)).background(if (editing) Accent else Color(0xFF1C1F26))
-                    .border(1.5.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
-                    .clickable(interactionSource = src, indication = LocalIndication.current) { editing = !editing }
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(if (editing) Icons.Default.Check else Icons.Default.Edit, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Text(if (editing) "Bitti" else "Düzenle", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
-            }
-        }
-        if (editing) Text("Ad değiştir, ana sayfada göster/gizle ya da sil.", color = Muted, fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 20.dp))
-
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(if (wide) 230.dp else 160.dp),
-            contentPadding = PaddingValues(16.dp, 14.dp, 16.dp, BottomSpace),
-            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(IptvStore.playlists.size, key = { IptvStore.playlists[it].id }) { i ->
-                val p = IptvStore.playlists[i]
-                AccountCard(p, editing, onOpen = { Nav.go(Route.IptvList(p)) }, onRename = { renaming = p }, onDelete = { deleting = p })
-            }
-            if (!editing) item(key = "add") { AddAccountCard { adding = true } }
-        }
-    }
 
     if (adding) AddAccountDialog { adding = false }
+    menu?.let { p ->
+        AccountSheet(p, onDismiss = { menu = null },
+            onRename = { menu = null; renaming = p },
+            onDelete = { menu = null; deleting = p })
+    }
     renaming?.let { p ->
         var name by remember(p) { mutableStateOf(p.name) }
         SimpleDialog("Adını değiştir", onDismiss = { renaming = null }, confirm = "Kaydet", onConfirm = { IptvStore.rename(p, name); renaming = null }) {
@@ -265,11 +397,17 @@ fun IptvScreen() {
         }
     }
     deleting?.let { p ->
-        SimpleDialog("Silinsin mi?", onDismiss = { deleting = null }, confirm = "Sil", danger = true,
+        SimpleDialog("Hesap silinsin mi?", onDismiss = { deleting = null }, confirm = "Sil", danger = true,
             onConfirm = { IptvStore.remove(p); deleting = null }) {
             Text("\"${p.name}\" hesabı ve kanal listesi silinecek.", color = Color(0xFFC8CBD0))
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, fontSize = 11.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.Bold, color = Muted,
+        modifier = Modifier.padding(20.dp, 16.dp, 20.dp, 4.dp))
 }
 
 /** Basit koyu pencere. */
@@ -379,30 +517,21 @@ private fun AddAccountDialog(onDismiss: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                accountKinds.forEachIndexed { i, k ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C1F26)).padding(4.dp)) {
+                listOf("M3U", "Xtream", "Dosya").forEachIndexed { i, t ->
                     val src = remember { MutableInteractionSource() }
                     val focused by src.collectIsFocusedAsState()
-                    val sel = mode == i
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                            .background(if (sel) k.color.copy(alpha = 0.12f) else Color(0xFF1C1F26))
-                            .border(1.5.dp, if (focused) Color.White else if (sel) k.color else Color.Transparent, RoundedCornerShape(14.dp))
+                    Text(t, color = if (mode == i) Color.White else Color(0xFFC8CBD0), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                            .background(if (mode == i) Accent else if (focused) Color(0xFF2A3042) else Color.Transparent)
                             .clickable(interactionSource = src, indication = LocalIndication.current) { mode = i; error = null }
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(k.icon, null, tint = k.color, modifier = Modifier.size(20.dp))
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(k.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text(k.desc, fontSize = 11.sp, color = Muted, maxLines = 1)
-                        }
-                        if (sel) Icon(Icons.Default.Check, null, tint = k.color, modifier = Modifier.size(18.dp))
-                    }
+                            .padding(vertical = 9.dp))
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Field(name, { name = it }, "Hesap adı (isteğe bağlı)", Icons.Default.Edit)
+            Spacer(Modifier.height(4.dp))
+            Field(name, { name = it }, "Hesap adı", Icons.Default.Edit)
             when (mode) {
                 0 -> Field(url, { url = it }, "M3U / M3U8 adresi", Icons.Default.Link, paste = true)
                 1 -> {
@@ -410,8 +539,16 @@ private fun AddAccountDialog(onDismiss: () -> Unit) {
                     Field(user, { user = it }, "Kullanıcı adı", Icons.Default.Person)
                     Field(pass, { pass = it }, "Şifre", Icons.Default.Lock, password = true)
                 }
-                else -> Text("Telefondaki .m3u / .m3u8 dosyasını seçeceksin.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+                else -> {}
             }
+            Text(
+                when (mode) {
+                    0 -> "IPTV sağlayıcının verdiği .m3u / .m3u8 bağlantısı. Liste eklendikten sonra kanallar kategorilere ayrılır."
+                    1 -> "Sunucu, kullanıcı adı ve şifre IPTV sağlayıcının verdiği bilgilerdir. Liste eklendikten sonra kanallar kategorilere ayrılır."
+                    else -> "Telefondaki .m3u / .m3u8 dosyasını seçeceksin."
+                },
+                color = Muted, fontSize = 11.5.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp)
+            )
             error?.let {
                 Text(it, color = Color(0xFFFF6B6B), fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp).fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp)).background(Color(0x1FFF6B6B)).padding(10.dp))
@@ -429,6 +566,9 @@ private fun AddAccountDialog(onDismiss: () -> Unit) {
                 } else Text(if (mode == 2) "Dosya seç" else "Hesabı ekle", color = if (ready) Color.White else Muted,
                     fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
+            Text("Vazgeç", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(10.dp))
+                    .clickable { if (!busy) onDismiss() }.padding(vertical = 10.dp))
         }
     }
 }
