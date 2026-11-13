@@ -16,21 +16,11 @@ jobs:
           curl -sSL -o app.jar https://github.com/recloudstream/cloudstream/releases/download/pre-release/classes.jar
           curl -sSL -o lib.jar https://jitpack.io/com/github/recloudstream/cloudstream/library-jvm/v4.8.0/library-jvm-v4.8.0.jar || true
           ls -la app.jar lib.jar
-      - name: Uygulamaya özel sınıflar (library'de olmayan)
+      - name: İnceleme 2
         run: |
-          unzip -Z1 app.jar | grep '^com/lagradost/' | grep '\.class$' | grep -v '\$' | sort > app.txt
-          unzip -Z1 lib.jar | grep '\.class$' | grep -v '\$' | sort > lib.txt || true
-          echo "app: $(wc -l < app.txt)  lib: $(wc -l < lib.txt)"
-          comm -23 app.txt lib.txt | grep -E 'cloudstream3/(network|utils|plugins|mvvm|ui/WebviewFragment|AcraApplication|CloudStreamApp|CommonActivity|MainActivity)' | head -300
-      - name: İmzalar
-        run: |
-          for c in network.WebViewResolver 'network.WebViewResolver$Companion' network.CloudflareKiller network.DdosGuardKiller \
-                   network.RequestsHelperKt network.DohProvidersKt utils.DataStore utils.DataStoreKt AcraApplication 'AcraApplication$Companion' \
-                   CloudStreamApp 'CloudStreamApp$Companion' utils.AppContextUtils plugins.Plugin plugins.BasePlugin CommonActivity; do
-            echo "===== $c"
-            javap -classpath app.jar "com.lagradost.cloudstream3.$c" 2>&1 | head -80
-          done
-          echo "===== library'de var mı?"
-          for c in network/WebViewResolver network/CloudflareKiller utils/DataStore AcraApplication CloudStreamApp; do
-            unzip -Z1 lib.jar | grep -q "com/lagradost/cloudstream3/$c.class" && echo "LIB: $c" || echo "YOK: $c"
-          done
+          echo "== lib com/lagradost/api"; unzip -Z1 lib.jar | grep '^com/lagradost/api/' | grep -v '\$' 
+          for c in $(unzip -Z1 lib.jar | grep '^com/lagradost/api/.*\.class$' | grep -v '\$' | sed 's/\.class$//; s#/#.#g'); do echo "===== $c"; javap -classpath lib.jar "$c" | head -30; done
+          echo "===== CommonActivity (tam)"; javap -classpath app.jar com.lagradost.cloudstream3.CommonActivity | grep -v "Event\|Cast" 
+          echo "===== MainActivity\$Companion"; javap -classpath app.jar 'com.lagradost.cloudstream3.MainActivity$Companion' | head -60
+          echo "===== DdosGuardKiller ve diğer"; javap -classpath app.jar 'com.lagradost.cloudstream3.utils.Editor' | head -20
+          echo "===== lib WebViewResolver var mı"; unzip -Z1 lib.jar | grep -i 'webview' 
