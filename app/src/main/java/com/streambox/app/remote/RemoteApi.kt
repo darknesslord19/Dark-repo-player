@@ -160,7 +160,7 @@ object RemoteApi {
             "chup", "chdown" -> {
                 val p = player()
                 if (p != null) onMain { p.playIndex((p.ui.index + if (code == "chup") -1 else 1).mod(p.items.size)) }
-                else if (inApp) onMain { repeat(3) { press(if (code == "chup") KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN) } }
+                else if (inApp) nav(if (code == "chup") "up" else "down")
                 else media(a, if (code == "chup") KeyEvent.KEYCODE_MEDIA_PREVIOUS else KeyEvent.KEYCODE_MEDIA_NEXT)
             }
             else -> {
@@ -178,6 +178,14 @@ object RemoteApi {
         val act = ActivityTracker.top?.get() ?: return@onMain false
         RemoteNav.handle(act, code)
     } == true
+
+    /** Yedek yol: öndeki etkinliğe doğrudan tuş olayı. */
+    private fun send(code: Int) {
+        val act = ActivityTracker.top?.get() ?: return
+        val now = SystemClock.uptimeMillis()
+        act.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
+        act.dispatchKeyEvent(KeyEvent(now, now + 30, KeyEvent.ACTION_UP, code, 0))
+    }
 
     private fun media(a: AudioManager, code: Int) {
         val now = SystemClock.uptimeMillis()
