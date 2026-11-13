@@ -1,0 +1,14 @@
+name: Adres incelemesi
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: adres
+        required: true
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U="${{ github.event.inputs.url }}"
+          echo "== $U"; curl -sSL -m 30 -A "Mozilla/5.0" -w '\nHTTP %{http_code}\n' "$U" | head -c 6000
