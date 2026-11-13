@@ -279,7 +279,7 @@ fun SeasonTabs(seasons: List<Pair<Int, String>>, selected: Int?, onSelect: (Int)
                 name, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                 color = if (sel) Color.White else Color(0xFFB8BCC4),
                 modifier = Modifier.clip(RoundedCornerShape(50))
-                    .background(if (sel) Accent else Chip)
+                    .background(if (sel) Accent else ChipBg)
                     .then(if (focused) Modifier.border(2.dp, Color.White, RoundedCornerShape(50)) else Modifier)
                     .clickable(interactionSource = src, indication = LocalIndication.current) { onSelect(n) }
                     .padding(horizontal = 16.dp, vertical = 9.dp)
