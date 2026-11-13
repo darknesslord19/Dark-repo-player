@@ -26,6 +26,20 @@ jobs:
       - name: APK derle
         run: gradle :app:assembleRelease --stacktrace
 
+      - name: CloudStream uyumluluk kontrolü (imza karşılaştırma)
+        continue-on-error: true
+        run: |
+          curl -sSL -o cs.jar https://github.com/recloudstream/cloudstream/releases/download/pre-release/classes.jar
+          OUR=app/build/tmp/kotlin-classes/release
+          for c in CloudStreamApp 'CloudStreamApp$Companion' 'AcraApplication$Companion' CommonActivity utils.DataStore utils.Editor \
+                   network.CloudflareKiller network.DdosGuardKiller network.RequestsHelperKt network.DohProvidersKt plugins.Plugin; do
+            n="com.lagradost.cloudstream3.$c"
+            javap -classpath cs.jar "$n" | grep -E '^\s+public' | grep -v 'access\$\|\$stable\|annotations\|static {}' | sed 's/ throws .*;/;/' | sort > real.txt
+            javap -classpath "$OUR" "$n" 2>/dev/null | grep -E '^\s+public' | sed 's/ throws .*;/;/' | sort > ours.txt
+            missing=$(comm -23 real.txt ours.txt)
+            if [ -n "$missing" ]; then echo "### $c — eksik:"; echo "$missing"; else echo "### $c — tamam"; fi
+          done
+
       - name: APK'yı yeniden adlandır
         run: cp app/build/outputs/apk/release/app-release.apk StreamBox.apk
 
