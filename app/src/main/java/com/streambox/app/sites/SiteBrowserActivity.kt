@@ -144,19 +144,23 @@ class SiteBrowserActivity : AppCompatActivity() {
                 override fun onHideCustomView() { customView = null; customCallback?.onCustomViewHidden(); customCallback = null }
             }
         }
+        // Tüm çerçevelerde (iframe oynatıcılar dahil) video adresini yakala
+        Sniff.install(web, auto = false) { url, page ->
+            found(url, Sniff.headers(page.ifBlank { pageUrl }, web.settings.userAgentString, url), framed = true)
+        }
         web.loadUrl(start)
 
         setContent { AppTheme { Screen() } }
     }
 
     /** Video adresi yakalandı: listeye ekle, gerekirse oynatmayı öner. */
-    private fun found(url: String, reqHeaders: Map<String, String>) {
+    private fun found(url: String, reqHeaders: Map<String, String>, framed: Boolean = false) {
         runOnUiThread {
             if (videos.any { it.url == url }) return@runOnUiThread
             // Aynı yayının parça listelerini tekrar ekleme
             if (url.contains(".m3u8", true) && videos.any { it.url.substringBefore('?').substringBeforeLast('/') == url.substringBefore('?').substringBeforeLast('/') }) return@runOnUiThread
             val h = mutableMapOf<String, String>()
-            reqHeaders.forEach { (k, v) -> if (k.lowercase() in setOf("referer", "origin", "user-agent")) h[k] = v }
+            reqHeaders.forEach { (k, v) -> if (framed || k.lowercase() in setOf("referer", "origin", "user-agent")) h[k] = v }
             if (h.keys.none { it.equals("Referer", true) }) h["Referer"] = pageUrl
             if (h.keys.none { it.equals("User-Agent", true) }) h["User-Agent"] = web.settings.userAgentString
             CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }

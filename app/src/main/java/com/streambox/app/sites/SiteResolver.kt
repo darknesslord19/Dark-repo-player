@@ -119,6 +119,9 @@ object SiteResolver {
                     }, 9000)
                 }
             }
+            Sniff.install(wv, auto = true) { url, page ->
+                onVideo(context, site, item, url, Sniff.headers(page.ifBlank { currentPage }, wv.settings.userAgentString, url), page.ifBlank { currentPage })
+            }
             wv.loadUrl(item.url, mapOf("Referer" to site.url + "/"))
             // Süre doldu: bulunanı oynat ya da sayfayı tarayıcıda aç
             val timeout = Runnable {

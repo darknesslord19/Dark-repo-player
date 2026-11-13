@@ -146,7 +146,7 @@ object SiteManager {
         return extract(doc).flatMap { it.items }.distinctBy { it.url }
     }
 
-    private val badImg = Regex("(?i)(logo|icon|avatar|banner|sprite|loading|placeholder|blank|pixel|ads?[-_/]|gravatar|emoji|flag)")
+    private val badImg = Regex("(?i)(logo|icon|avatar|banner|sprite|loading|placeholder|blank|pixel|(^|[/._-])ads?[-_/.]|gravatar|emoji|flag)")
     private val badLink = Regex("(?i)(/tag/|/category/|/kategori/|/tur/|/genre/|/yil/|/year/|/oyuncu/|/actor/|/author/|/page/|/feed|#|javascript:|/wp-login|/iletisim|/contact|facebook\\.|twitter\\.|instagram\\.|t\\.me/)")
 
     private fun imgSrc(img: Element): String? {

@@ -112,6 +112,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     // Telefon kumandası için QR kod
     implementation("com.google.zxing:core:3.5.3")
+    // Sitelerde tüm çerçevelere (iframe oynatıcılar) betik ekleyip video adresini yakalamak için
+    implementation("androidx.webkit:webkit:1.12.1")
 }
 
 // Nuvio eklentilerinin istediği crypto-js kütüphanesini derlemeden önce indir
