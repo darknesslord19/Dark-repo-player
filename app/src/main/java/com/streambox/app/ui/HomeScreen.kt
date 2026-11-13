@@ -287,7 +287,16 @@ fun HomeScreen() {
                 error != null -> item {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Message("Yüklenemedi: $error")
-                        androidx.compose.material3.Button(onClick = { Nav.homeCache.remove(catalogKey); retry++ }) { Text("Yeniden dene") }
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            androidx.compose.material3.Button(onClick = { Nav.homeCache.remove(catalogKey); retry++ }) { Text("Yeniden dene") }
+                            // Eklenti sitesi Cloudflare ile korunuyorsa: siteyi açıp doğrula
+                            val cfUrl = api?.mainUrl
+                            if (cfUrl != null) androidx.compose.material3.OutlinedButton(onClick = {
+                                Nav.homeCache.remove(catalogKey)
+                                com.streambox.app.cf.CfVerify.open(context, cfUrl)
+                            }) { Text(if (com.streambox.app.cf.CfVerify.looksBlocked(error)) "Cloudflare doğrula" else "Siteyi doğrula") }
+                        }
                     }
                 }
                 r.isEmpty() -> item {

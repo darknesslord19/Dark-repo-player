@@ -57,6 +57,7 @@ object Net {
             .followRedirects(true)
             .followSslRedirects(true)
             .ignoreAllSSLErrors()
+            .addInterceptor(com.streambox.app.cf.CfVerify.interceptor)
         val provider = runCatching { DnsProvider.valueOf(Settings.dns) }.getOrDefault(DnsProvider.NONE)
         if (provider.url != null) {
             runCatching {

@@ -28,6 +28,12 @@
         </service>
 
         <activity
+            android:name=".cf.CfVerifyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.StreamBox"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
+
+        <activity
             android:name=".sites.SiteBrowserActivity"
             android:exported="false"
             android:theme="@style/Theme.StreamBox"

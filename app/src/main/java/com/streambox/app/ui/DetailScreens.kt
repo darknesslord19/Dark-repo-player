@@ -460,7 +460,15 @@ fun CsDetailScreen(card: CsCard) {
             )
         }
         when {
-            failed != null -> item { Message("Açılamadı: $failed") }
+            failed != null -> item {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    Message("Açılamadı: $failed")
+                    androidx.compose.material3.OutlinedButton(onClick = {
+                        com.streambox.app.cf.CfVerify.open(context, card.api.mainUrl)
+                    }) { Text("Cloudflare / site doğrula") }
+                }
+            }
             d == null -> item { Loading() }
             else -> {
                 item {

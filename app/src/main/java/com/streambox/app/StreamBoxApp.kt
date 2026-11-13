@@ -37,6 +37,7 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         instance = this
         Settings.init(this)
         AppIcon.init(this)
+        com.streambox.app.cf.CfVerify.init(this)
         Profiles.init(this)
         WatchHistory.init(this)
         registerActivityLifecycleCallbacks(ActivityTracker)
