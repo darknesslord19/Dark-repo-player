@@ -75,6 +75,8 @@ class PlayerUiState {
     var tracks by mutableStateOf(Tracks.EMPTY)
     var inPip by mutableStateOf(false)
     var videoSize by mutableStateOf("")
+    /** Yayın gerçekten canlı mı (IPTV listelerindeki film/dizi dosyaları canlı değildir). */
+    var liveStream by mutableStateOf(false)
     /** Kontroller en son ne zaman kullanıldı (otomatik gizleme için). */
     var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
 }

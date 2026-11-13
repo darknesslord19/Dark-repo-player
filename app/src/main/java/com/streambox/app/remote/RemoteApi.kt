@@ -164,45 +164,20 @@ object RemoteApi {
                 else media(a, if (code == "chup") KeyEvent.KEYCODE_MEDIA_PREVIOUS else KeyEvent.KEYCODE_MEDIA_NEXT)
             }
             else -> {
-                val k = keyMap[code] ?: return
-                // Uygulama öndeyse kendi ekranımızda uygula; değilse erişilebilirlik hizmetiyle tüm cihazda
-                val done = inApp && (onMain { press(k) } == true)
-                if (!done && a11y?.perform(code) != true && !inApp)
-                    com.streambox.app.AppLog.i("Kumanda: uygulama dışı kontrol için erişilebilirlik hizmetini aç")
+                if (code !in keyMap) return
+                // Uygulama öndeyse odak doğrudan taşınır; değilse erişilebilirlik hizmetiyle tüm cihazda.
+                if (!(inApp && nav(code))) {
+                    if (a11y?.perform(code) != true && inApp) onMain { send(keyMap.getValue(code)) }
+                }
             }
         }
     }
 
-    /**
-     * Öndeki StreamBox ekranında tuşa basar: önce dokunmatik kipten çıkar (yoksa Compose öğeleri odak alamaz),
-     * tuşu ekrana iletir; ekran kullanmazsa odağı doğrudan taşır.
-     */
-    private fun press(code: Int): Boolean {
-        val act = ActivityTracker.top?.get() ?: return false
-        val decor = act.window?.decorView ?: return false
-        if (code == KeyEvent.KEYCODE_BACK && act !is PlayerActivity) { act.onBackPressedDispatcherCompat(); return true }
-        if (decor.isInTouchMode) {
-            runCatching { (act.currentFocus ?: decor).requestFocusFromTouch() }
-        }
-        val now = SystemClock.uptimeMillis()
-        val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, 0, -1, 0, 0, android.view.InputDevice.SOURCE_DPAD)
-        val up = KeyEvent(now, now + 20, KeyEvent.ACTION_UP, code, 0, 0, -1, 0, 0, android.view.InputDevice.SOURCE_DPAD)
-        val handled = act.dispatchKeyEvent(down)
-        act.dispatchKeyEvent(up)
-        if (handled) return true
-        val dir = when (code) {
-            KeyEvent.KEYCODE_DPAD_UP -> androidx.compose.ui.focus.FocusDirection.Up
-            KeyEvent.KEYCODE_DPAD_DOWN -> androidx.compose.ui.focus.FocusDirection.Down
-            KeyEvent.KEYCODE_DPAD_LEFT -> androidx.compose.ui.focus.FocusDirection.Left
-            KeyEvent.KEYCODE_DPAD_RIGHT -> androidx.compose.ui.focus.FocusDirection.Right
-            else -> return false
-        }
-        return RemoteFocus.move(act, dir)
-    }
-
-    private fun android.app.Activity.onBackPressedDispatcherCompat() {
-        if (this is androidx.activity.ComponentActivity) onBackPressedDispatcher.onBackPressed() else @Suppress("DEPRECATION") onBackPressed()
-    }
+    /** Öndeki StreamBox ekranında tuşu uygular. */
+    private fun nav(code: String): Boolean = onMain {
+        val act = ActivityTracker.top?.get() ?: return@onMain false
+        RemoteNav.handle(act, code)
+    } == true
 
     private fun media(a: AudioManager, code: Int) {
         val now = SystemClock.uptimeMillis()

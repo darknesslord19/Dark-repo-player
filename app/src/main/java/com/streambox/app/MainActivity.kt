@@ -99,6 +99,7 @@ private fun isTv(): Boolean {
 
 @Composable
 private fun Root() {
+    com.streambox.app.remote.RemoteNav.Hook()
     // Profilli giriş açıksa önce "Kim izliyor?"
     if (!Profiles.chosen) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Bg)) { com.streambox.app.ui.ProfilePickerScreen() }
