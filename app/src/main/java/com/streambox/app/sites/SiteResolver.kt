@@ -119,8 +119,9 @@ object SiteResolver {
                     }, 9000)
                 }
             }
-            Sniff.install(wv, auto = true) { url, page ->
-                onVideo(context, site, item, url, Sniff.headers(page.ifBlank { currentPage }, wv.settings.userAgentString, url), page.ifBlank { currentPage })
+            Sniff.install(wv, auto = true) { hit ->
+                onVideo(context, site, item, hit.url, Sniff.headers(hit.page.ifBlank { currentPage }, wv.settings.userAgentString, hit.url),
+                    hit.page.ifBlank { currentPage }, hit.kind, hit.subs)
             }
             wv.loadUrl(item.url, mapOf("Referer" to site.url + "/"))
             // Süre doldu: bulunanı oynat ya da sayfayı tarayıcıda aç
@@ -144,27 +145,38 @@ object SiteResolver {
         active = null
     }
 
-    private fun onVideo(context: Context, site: Site, item: SiteItem, url: String, req: Map<String, String>, page: String) {
-        if (web == null || found.any { it.url == url }) return
+    private fun onVideo(context: Context, site: Site, item: SiteItem, url: String, req: Map<String, String>, page: String,
+                        kindHint: String = "", subs: List<Pair<String, String>> = emptyList()) {
+        if (web == null) return
+        found.indexOfFirst { it.url == url }.takeIf { it >= 0 }?.let { i ->
+            val v = found[i]
+            if ((kindHint.isNotBlank() && !v.isStream) || (subs.isNotEmpty() && v.subs.isEmpty()))
+                found[i] = v.copy(label = if (kindHint.isNotBlank()) kindHint.uppercase() + " · " + v.label.substringAfter(" · ") else v.label, subs = subs.ifEmpty { v.subs })
+            return
+        }
         if (url.contains(".m3u8", true) && found.any { it.url.substringBefore('?').substringBeforeLast('/') == url.substringBefore('?').substringBeforeLast('/') }) return
         val h = mutableMapOf<String, String>()
         req.forEach { (k, v) -> if (k.lowercase() in setOf("referer", "origin", "user-agent")) h[k] = v }
         if (h.keys.none { it.equals("Referer", true) }) h["Referer"] = page
         if (h.keys.none { it.equals("User-Agent", true) }) web?.settings?.userAgentString?.let { h["User-Agent"] = it }
         CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
-        val kind = when { url.contains(".m3u8", true) || url.contains("master.txt", true) -> "HLS"; url.contains(".mpd", true) -> "DASH"; else -> "MP4" }
-        found += SniffedVideo(url, h, "$kind · ${runCatching { java.net.URI(url).host }.getOrNull() ?: ""}")
-        status = "Video bulundu"
-        // Aynı anda gelen diğer kaliteleri de toplamak için çok kısa bekle
-        if (finishJob == null) {
-            val r = Runnable { start(context, site, item) }
-            finishJob = r
-            main.postDelayed(r, 1200)
+        val kind = when {
+            kindHint == "hls" -> "HLS"; kindHint == "dash" -> "DASH"
+            url.contains(".m3u8", true) || url.contains("master.txt", true) -> "HLS"; url.contains(".mpd", true) -> "DASH"; else -> "MP4"
         }
+        val v = SniffedVideo(url, h, "$kind · ${runCatching { java.net.URI(url).host }.getOrNull() ?: ""}", subs)
+        found += v
+        status = "Video bulundu"
+        // Yayın listesi geldiyse hemen; yalnızca MP4 varsa (reklam olabilir) asıl yayını biraz daha bekle
+        val delay = if (found.any { it.isStream }) 1200L else 5000L
+        finishJob?.let { main.removeCallbacks(it) }
+        val r = Runnable { start(context, site, item) }
+        finishJob = r
+        main.postDelayed(r, delay)
     }
 
     private fun start(context: Context, site: Site, item: SiteItem) {
-        val list = found.toList()
+        val list = found.toList().sortedByDescending { it.isStream }
         cancel0()
         if (list.isEmpty()) return
         val meta = JSONObject().put("kind", "site").put("title", item.title).put("subtitle", site.name)
@@ -172,6 +184,7 @@ object SiteResolver {
         val items = list.map { v ->
             PlayItem(item.title, v.url, v.headers,
                 kind = when { v.label.startsWith("HLS") -> PlayItem.Kind.HLS; v.label.startsWith("DASH") -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
+                subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
                 label = v.label, resumeKey = "site|${item.url.substringBefore('#')}", meta = meta)
         }
         val ctx = com.streambox.app.ActivityTracker.top?.get() ?: context

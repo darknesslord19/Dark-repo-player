@@ -409,6 +409,7 @@ private fun OptionDialog(title: String, options: List<Option>, scrollTo: Int = 0
     val first = remember { FocusRequester() }
     val selectedIndex = options.indexOfFirst { it.selected && !it.header }.coerceAtLeast(0)
     Dialog(onDismissRequest = onDismiss) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(
             Modifier.widthIn(max = 460.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color(0xF21A1D24)).padding(vertical = 14.dp)
         ) {

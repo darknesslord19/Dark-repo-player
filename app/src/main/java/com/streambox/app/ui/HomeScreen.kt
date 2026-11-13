@@ -415,6 +415,7 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = Color(0xFF16181E),
         dragHandle = { Box(Modifier.padding(top = 10.dp).size(40.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3F49))) }) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(20.dp, 8.dp, 12.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Kaynak seç", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))

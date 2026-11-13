@@ -50,7 +50,9 @@ import org.json.JSONObject
 import java.net.URI
 
 /** Sayfada yakalanan video. */
-data class SniffedVideo(val url: String, val headers: Map<String, String>, val label: String)
+data class SniffedVideo(val url: String, val headers: Map<String, String>, val label: String, val subs: List<Pair<String, String>> = emptyList()) {
+    val isStream get() = label.startsWith("HLS") || label.startsWith("DASH")
+}
 
 /**
  * Eklenen siteleri reklamsız açan tarayıcı: reklam ağlarını ve başka sitelere yönlendirmeleri engeller,
@@ -145,8 +147,8 @@ class SiteBrowserActivity : AppCompatActivity() {
             }
         }
         // Tüm çerçevelerde (iframe oynatıcılar dahil) video adresini yakala
-        Sniff.install(web, auto = false) { url, page ->
-            found(url, Sniff.headers(page.ifBlank { pageUrl }, web.settings.userAgentString, url), framed = true)
+        Sniff.install(web, auto = false) { hit ->
+            found(hit.url, Sniff.headers(hit.page.ifBlank { pageUrl }, web.settings.userAgentString, hit.url), framed = true, kindHint = hit.kind, subs = hit.subs)
         }
         web.loadUrl(start)
 
@@ -154,9 +156,15 @@ class SiteBrowserActivity : AppCompatActivity() {
     }
 
     /** Video adresi yakalandı: listeye ekle, gerekirse oynatmayı öner. */
-    private fun found(url: String, reqHeaders: Map<String, String>, framed: Boolean = false) {
+    private fun found(url: String, reqHeaders: Map<String, String>, framed: Boolean = false, kindHint: String = "", subs: List<Pair<String, String>> = emptyList()) {
         runOnUiThread {
-            if (videos.any { it.url == url }) return@runOnUiThread
+            videos.indexOfFirst { it.url == url }.takeIf { it >= 0 }?.let { i ->
+                // Aynı video daha ayrıntılı bilgiyle geldiyse (tür / altyazı) güncelle
+                val v = videos[i]
+                if ((kindHint.isNotBlank() && !v.isStream) || (subs.isNotEmpty() && v.subs.isEmpty()))
+                    videos[i] = v.copy(label = if (kindHint.isNotBlank()) kindHint.uppercase() + " · " + siteOf(url) else v.label, subs = subs.ifEmpty { v.subs })
+                return@runOnUiThread
+            }
             // Aynı yayının parça listelerini tekrar ekleme
             if (url.contains(".m3u8", true) && videos.any { it.url.substringBefore('?').substringBeforeLast('/') == url.substringBefore('?').substringBeforeLast('/') }) return@runOnUiThread
             val h = mutableMapOf<String, String>()
@@ -165,13 +173,15 @@ class SiteBrowserActivity : AppCompatActivity() {
             if (h.keys.none { it.equals("User-Agent", true) }) h["User-Agent"] = web.settings.userAgentString
             CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
             val kind = when {
+                kindHint == "hls" -> "HLS"
+                kindHint == "dash" -> "DASH"
                 url.contains(".m3u8", true) || url.contains("master.txt", true) -> "HLS"
                 url.contains(".mpd", true) -> "DASH"
                 else -> url.substringBefore('?').substringAfterLast('.', "video").uppercase().take(4)
             }
-            val v = SniffedVideo(url, h, "$kind · ${siteOf(url)}")
+            val v = SniffedVideo(url, h, "$kind · ${siteOf(url)}", subs)
             videos += v
-            if (SiteManager.autoVideo && offeredFor != pageUrl && customView == null) { offeredFor = pageUrl; offer = v }
+            if (SiteManager.autoVideo && offeredFor != pageUrl && customView == null && (v.isStream || framed)) { offeredFor = pageUrl; offer = v }
         }
     }
 
@@ -179,13 +189,17 @@ class SiteBrowserActivity : AppCompatActivity() {
         val title = pageTitle.ifBlank { siteOf(pageUrl) }
         val meta = JSONObject().put("kind", "site").put("title", title).put("subtitle", siteOf(pageUrl))
             .put("poster", poster ?: "").put("url", pageUrl).toString()
-        val items = videos.map { v ->
+        val chosen = videos.getOrNull(index)
+        // Yayın listeleri (HLS/DASH) önce: reklam MP4'leri sona
+        val ordered = videos.sortedByDescending { it.isStream }
+        val items = ordered.map { v ->
             PlayItem(title, v.url, v.headers,
                 kind = when { v.label.startsWith("HLS") -> PlayItem.Kind.HLS; v.label.startsWith("DASH") -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
+                subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
                 label = v.label, resumeKey = "site|${pageUrl.substringBefore('#')}", meta = meta)
         }
         web.onPause()
-        PlayerActivity.start(this, items, index)
+        PlayerActivity.start(this, items, ordered.indexOf(chosen).coerceAtLeast(0))
     }
 
     override fun onResume() { super.onResume(); if (::web.isInitialized) web.onResume() }
@@ -240,12 +254,13 @@ class SiteBrowserActivity : AppCompatActivity() {
                 onDismissRequest = { offer = null },
                 icon = { Icon(Icons.Default.Movie, null, tint = Accent) },
                 title = { Text("Video bulundu") },
-                text = { Text("Reklamsız izlemek için DarknesBox oynatıcısında açılsın mı?\n${v.label}", color = Color(0xFFC8CBD0)) },
+                text = { com.streambox.app.remote.RemoteNav.Hook();  Text("Reklamsız izlemek için DarknesBox oynatıcısında açılsın mı?\n${v.label}", color = Color(0xFFC8CBD0)) },
                 confirmButton = { Button(onClick = { offer = null; play(videos.indexOf(v).coerceAtLeast(0)) }) { Text("Oynat") } },
                 dismissButton = { TextButton(onClick = { offer = null }) { Text("Sayfada kal") } },
             )
         }
         if (showList) ModalBottomSheet(onDismissRequest = { showList = false }, containerColor = Color(0xFF16181E)) {
+            com.streambox.app.remote.RemoteNav.Hook()
             Text("Sayfada bulunan videolar", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(20.dp, 4.dp, 20.dp, 10.dp))
             LazyColumn(contentPadding = PaddingValues(bottom = 30.dp)) {
                 itemsIndexed(videos.toList()) { i, v ->

@@ -192,7 +192,7 @@ private fun ECardBox(selected: Boolean = false, onClick: (() -> Unit)? = null, c
 private fun Confirm(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Color(0xFF1A1D24),
-        title = { Text(title) }, text = { Text(text, color = Color(0xFFC8CBD0)) },
+        title = { Text(title) }, text = { com.streambox.app.remote.RemoteNav.Hook();  Text(text, color = Color(0xFFC8CBD0)) },
         confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirm, color = Red, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } }
     )
@@ -455,7 +455,7 @@ private fun InstalledDetailDialog(p: InstalledPlugin, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Color(0xFF1A1D24),
         title = { Text(p.name) },
-        text = {
+        text = { com.streambox.app.remote.RemoteNav.Hook(); 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Sürüm ${p.version} · ${sizeText(PluginManager.sizeOf(context, p)) ?: "?"}", color = Muted)
                 Text(
@@ -573,6 +573,7 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
     }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF16181E))
             .border(1.dp, EStroke, RoundedCornerShape(24.dp)).padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

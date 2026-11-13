@@ -221,6 +221,7 @@ private fun AccountSheet(p: Playlist, onDismiss: () -> Unit, onRename: () -> Uni
         containerColor = Color(0xFF16181E),
         dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 6.dp).size(42.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3F49))) }
     ) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(20.dp, 4.dp, 20.dp, 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 AccountAvatar(current, 46.dp)
@@ -404,6 +405,7 @@ private fun SimpleDialog(
     onConfirm: () -> Unit, content: @Composable () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF16181E))
             .border(1.dp, Color(0xFF2A2F3A), RoundedCornerShape(24.dp)).padding(22.dp)) {
             Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -489,6 +491,7 @@ private fun AddAccountDialog(onDismiss: () -> Unit) {
     }
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF16181E))
             .border(1.dp, Color(0xFF2A2F3A), RoundedCornerShape(24.dp)).verticalScroll(rememberScrollState()).padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

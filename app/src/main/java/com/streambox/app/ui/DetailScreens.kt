@@ -165,6 +165,7 @@ fun StreamsDialog(title: String, options: List<StreamOption>, status: String?, b
         containerColor = Color(0xFF14161B),
         dragHandle = { Box(Modifier.padding(top = 10.dp).size(44.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3F49))) }
     ) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             // Başlık
             Row(Modifier.fillMaxWidth().padding(20.dp, 10.dp, 12.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {

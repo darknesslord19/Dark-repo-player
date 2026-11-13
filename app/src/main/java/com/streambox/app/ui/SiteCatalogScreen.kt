@@ -200,6 +200,7 @@ private fun CatalogPoster(item: SiteItem, referer: String, onClick: () -> Unit) 
 fun SiteResolveOverlay() {
     val item = SiteResolver.active ?: return
     Dialog(onDismissRequest = { SiteResolver.cancel() }) {
+        com.streambox.app.remote.RemoteNav.Hook()
         Row(
             Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF171A21)).padding(18.dp).widthIn(max = 420.dp),
             verticalAlignment = Alignment.CenterVertically

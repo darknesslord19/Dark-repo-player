@@ -177,7 +177,7 @@ fun BackupPage() {
         AlertDialog(
             onDismissRequest = { pendingRestore = null },
             title = { Text("Yedek geri yüklensin mi?") },
-            text = { Text("${data.optString("device")} · ${Backup.summary(data)}\nMevcut ayarların yerine geçecek.") },
+            text = { com.streambox.app.remote.RemoteNav.Hook();  Text("${data.optString("device")} · ${Backup.summary(data)}\nMevcut ayarların yerine geçecek.") },
             confirmButton = {
                 Button(onClick = {
                     runCatching { Backup.restore(context, data) }
@@ -233,7 +233,7 @@ fun SyncPage() {
         AlertDialog(
             onDismissRequest = { manual = false },
             title = { Text("Cihaz adresi") },
-            text = { OutlinedTextField(addr, { addr = it.trim() }, label = { Text("ör. 192.168.1.20:8686") }, singleLine = true) },
+            text = { com.streambox.app.remote.RemoteNav.Hook();  OutlinedTextField(addr, { addr = it.trim() }, label = { Text("ör. 192.168.1.20:8686") }, singleLine = true) },
             confirmButton = {
                 Button(onClick = {
                     val a = if (addr.contains(':')) addr else "$addr:${RemoteServer.PORT}"
@@ -257,7 +257,7 @@ private fun SyncDialog(peer: Peer, onClose: () -> Unit) {
     AlertDialog(
         onDismissRequest = { if (busy == null) onClose() },
         title = { Text(peer.name) },
-        text = {
+        text = { com.streambox.app.remote.RemoteNav.Hook(); 
             Column {
                 Text("Diğer cihazın PIN'ini gir (Ayarlar › Wi-Fi senkronizasyon ya da Telefon kumandası).", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(10.dp))
@@ -413,7 +413,7 @@ fun SitesPage() {
         AlertDialog(
             onDismissRequest = { editing = null },
             title = { Text(st.host) },
-            text = {
+            text = { com.streambox.app.remote.RemoteNav.Hook(); 
                 Column {
                     OutlinedTextField(n, { n = it }, label = { Text("Ad") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))

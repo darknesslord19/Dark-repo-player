@@ -20,14 +20,25 @@ object Sniff {
   if (window.__dbxSniff) return; window.__dbxSniff = 1;
   var AUTO = $auto;
   var sent = {};
-  function report(u, why){
+  function abs(u){ try { return new URL(u, location.href).href; } catch(e) { return null; } }
+  function report(u, why, kind, subs){
     try {
       if (!u || typeof u !== 'string') return;
       if (u.indexOf('blob:') === 0 || u.indexOf('data:') === 0) return;
-      u = new URL(u, location.href).href;
-      if (sent[u]) return; sent[u] = 1;
-      DbxSniff.postMessage(JSON.stringify({url: u, page: location.href, why: why}));
+      u = abs(u); if (!u) return;
+      var key = u + (subs && subs.length ? '#s' : '');
+      if (sent[key]) return; sent[key] = 1;
+      DbxSniff.postMessage(JSON.stringify({url: u, page: location.href, why: why, kind: kind || '', subs: subs || []}));
     } catch(e) {}
+  }
+  // Reklam (preroll/VAST) videolarını ayıkla
+  var adRe = /(^|[\s_-])(ad|ads|advert|preroll|vast|ima|sponsor)([\s_-]|$)/i;
+  function isAdEl(el){
+    for (var n = el, d = 0; n && d < 8; n = n.parentElement, d++) {
+      var c = (typeof n.className === 'string' ? n.className : '') + ' ' + (n.id || '');
+      if (adRe.test(c)) return true;
+    }
+    return false;
   }
   function isManifest(ct, text){
     ct = (ct || '').toLowerCase();
@@ -43,7 +54,8 @@ object Sniff {
     x.addEventListener('load', function(){
       try {
         var t = (x.responseType === '' || x.responseType === 'text') ? (x.responseText || '').slice(0, 64) : null;
-        if (isManifest(x.getResponseHeader('content-type'), t)) report(x.responseURL || x.__dbxUrl, 'xhr');
+        var ct = x.getResponseHeader('content-type') || '';
+        if (isManifest(ct, t)) report(x.responseURL || x.__dbxUrl, 'xhr', (ct.indexOf('dash') >= 0 || (t && t.indexOf('<MPD') >= 0)) ? 'dash' : 'hls');
       } catch(e) {}
     });
     return send.apply(this, arguments);
@@ -57,8 +69,8 @@ object Sniff {
         p.then(function(r){
           try {
             var ct = r.headers.get('content-type');
-            if (isManifest(ct, null)) report(r.url, 'fetch');
-            else if (!ct || ct.indexOf('text') >= 0) r.clone().text().then(function(t){ if (isManifest('', t.slice(0, 64))) report(r.url, 'fetch'); }).catch(function(){});
+            if (isManifest(ct, null)) report(r.url, 'fetch', (ct || '').indexOf('dash') >= 0 ? 'dash' : 'hls');
+            else if (!ct || ct.indexOf('text') >= 0) r.clone().text().then(function(t){ if (isManifest('', t.slice(0, 64))) report(r.url, 'fetch', t.indexOf('<MPD') >= 0 ? 'dash' : 'hls'); }).catch(function(){});
           } catch(e) {}
         }).catch(function(){});
       } catch(e) {}
@@ -74,7 +86,16 @@ object Sniff {
         var j = window.jwplayer();
         if (j && j.getPlaylistItem) {
           var it = j.getPlaylistItem();
-          if (it) { report(it.file, 'jw'); (it.sources || []).forEach(function(s){ report(s.file, 'jw'); }); }
+          if (it) {
+            var subs = (it.tracks || []).filter(function(t){ return t && t.file && (!t.kind || t.kind === 'captions' || t.kind === 'subtitles'); })
+              .map(function(t){ return {file: abs(t.file), label: t.label || t.language || 'Altyazı'}; });
+            var srcs = (it.sources && it.sources.length) ? it.sources : [{file: it.file, type: it.type}];
+            srcs.forEach(function(s){
+              var ty = String(s.type || it.type || '');
+              var kind = /hls|m3u8|mpegurl/i.test(ty) ? 'hls' : (/dash|mpd/i.test(ty) ? 'dash' : '');
+              report(s.file, 'jw', kind, subs);
+            });
+          }
           if (AUTO && j.getState && j.getState() !== 'playing') { try { j.setMute(true); j.play(); } catch(e) {} }
         }
       }
@@ -83,6 +104,7 @@ object Sniff {
         for (var k in ps) { try { report(ps[k].currentSrc(), 'videojs'); if (AUTO) { ps[k].muted(true); ps[k].play(); } } catch(e) {} }
       }
       document.querySelectorAll('video, video source').forEach(function(v){
+        if (isAdEl(v)) return;
         report(v.currentSrc || v.src, 'video');
         if (AUTO && v.tagName === 'VIDEO' && v.paused) { v.muted = true; var r = v.play(); if (r && r.catch) r.catch(function(){}); }
       });
@@ -99,7 +121,10 @@ object Sniff {
 """
 
     /** Çerçeveler arası betik destekleniyorsa kurar; desteklenmiyorsa false (eski yöntemle devam edilir). */
-    fun install(web: WebView, auto: Boolean, onFound: (url: String, page: String) -> Unit): Boolean {
+    /** Yakalanan video: [kind] "hls" / "dash" / "" (bilinmiyor), [subs] (ad, adres). */
+    data class Hit(val url: String, val page: String, val kind: String, val subs: List<Pair<String, String>>)
+
+    fun install(web: WebView, auto: Boolean, onFound: (Hit) -> Unit): Boolean {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) ||
             !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return false
         return runCatching {
@@ -107,8 +132,12 @@ object Sniff {
                 val o = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
                 val url = o.optString("url")
                 if (url.startsWith("http") && !AdBlock.isAd(url) && !url.contains("googlevideo", true)) {
-                    AppLog.i("Video yakalandı (${o.optString("why")}): $url")
-                    onFound(url, o.optString("page"))
+                    AppLog.i("Video yakalandı (${o.optString("why")}${o.optString("kind").let { k -> if (k.isBlank()) "" else ", $k" }}): $url")
+                    val subs = o.optJSONArray("subs")?.let { a ->
+                        (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { s -> s.optString("label", "Altyazı") to s.optString("file") } }
+                            .filter { it.second.startsWith("http") }
+                    }.orEmpty()
+                    onFound(Hit(url, o.optString("page"), o.optString("kind"), subs))
                 }
             }
             WebViewCompat.addDocumentStartJavaScript(web, script(auto), setOf("*"))

@@ -158,7 +158,7 @@ fun ProfileEditor(profile: Profile?, onClose: () -> Unit) {
         onDismissRequest = onClose,
         containerColor = Color(0xFF171A21),
         title = { Text(if (profile == null) "Yeni profil" else "Profili düzenle", fontWeight = FontWeight.Bold) },
-        text = {
+        text = { com.streambox.app.remote.RemoteNav.Hook(); 
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AvatarImage(avatar, image, 72.dp, 18.dp)

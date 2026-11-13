@@ -21,17 +21,31 @@ import java.util.WeakHashMap
  * Bu yüzden önce dokunmatik moddan çıkılır, ardından odak doğrudan Compose'un odak yöneticisiyle taşınır.
  */
 object RemoteNav {
-    private val managers = WeakHashMap<Activity, FocusManager>()
+    /** Etkinlik başına açık pencereler (ekran, alttan açılan panel, pencere…): en son açılan öndedir. */
+    private class Entry(val fm: FocusManager, val view: View)
+    private val stacks = WeakHashMap<Activity, MutableList<Entry>>()
 
-    /** Her ekranın kökünde çağrılır: o ekranın odak yöneticisini kaydeder. */
+    private fun findActivity(c: android.content.Context?): Activity? {
+        var x = c
+        while (x is android.content.ContextWrapper) { if (x is Activity) return x; x = x.baseContext }
+        return null
+    }
+
+    /** Her ekranın ve her açılır panelin/pencerenin içinde çağrılır: odak yöneticisini ve penceresini kaydeder. */
     @Composable
     fun Hook() {
-        val act = LocalContext.current as? Activity ?: return
+        val view = androidx.compose.ui.platform.LocalView.current
+        val act = findActivity(LocalContext.current) ?: findActivity(view.context) ?: return
         val fm = LocalFocusManager.current
-        DisposableEffect(act, fm) {
-            synchronized(managers) { managers[act] = fm }
-            onDispose { synchronized(managers) { if (managers[act] === fm) managers.remove(act) } }
+        DisposableEffect(act, fm, view) {
+            val e = Entry(fm, view)
+            synchronized(stacks) { stacks.getOrPut(act) { mutableListOf() } += e }
+            onDispose { synchronized(stacks) { stacks[act]?.remove(e) } }
         }
+    }
+
+    private fun top(act: Activity): Entry? = synchronized(stacks) {
+        stacks[act]?.lastOrNull { it.view.isAttachedToWindow }
     }
 
     private fun composeView(act: Activity): View? {
@@ -70,11 +84,23 @@ object RemoteNav {
 
     /** Ana iş parçacığında çağrılmalı. Uygulandıysa true. */
     fun handle(act: Activity, code: String): Boolean {
-        val view = composeView(act) ?: return false
+        val entry = top(act)
+        // Açık bir panel/pencere varsa tuşlar ona gider
+        val inDialog = entry != null && entry.view.rootView !== act.window.decorView
+        val view = entry?.view ?: composeView(act) ?: return false
         // Dokunmatik moddan çık ve klavye odağını Compose'a ver
         if (view.isInTouchMode || !view.hasFocus()) runCatching { view.requestFocusFromTouch() }
-        val fm = synchronized(managers) { managers[act] }
+        val fm = entry?.fm
 
+        if (inDialog) {
+            when (code) {
+                "back" -> press(view.rootView, KeyEvent.KEYCODE_BACK)
+                "up", "down", "left", "right" -> move(fm, view, code)
+                "ok", "menu" -> press(view, keyOf(code))
+                else -> return false
+            }
+            return true
+        }
         if (act is PlayerActivity) return player(act, fm, view, code)
 
         when (code) {
