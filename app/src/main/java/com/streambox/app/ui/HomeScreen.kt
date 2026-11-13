@@ -289,9 +289,10 @@ fun HomeScreen() {
                         Message("Yüklenemedi: $error")
                         val context = androidx.compose.ui.platform.LocalContext.current
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            androidx.compose.material3.Button(onClick = { Nav.homeCache.remove(catalogKey); retry++ }) { Text("Yeniden dene") }
+                            androidx.compose.material3.Button(onClick = { Nav.homeCache.remove(catalogKey); com.streambox.app.sites.SiteManager.clearCache(); retry++ }) { Text("Yeniden dene") }
                             // Eklenti sitesi Cloudflare ile korunuyorsa: siteyi açıp doğrula
-                            val cfUrl = api?.mainUrl
+                            val cfUrl = api?.mainUrl ?: com.streambox.app.sites.SiteManager.sites
+                                .firstOrNull { "site:" + it.id == selected }?.url
                             if (cfUrl != null) androidx.compose.material3.OutlinedButton(onClick = {
                                 Nav.homeCache.remove(catalogKey)
                                 com.streambox.app.cf.CfVerify.open(context, cfUrl)

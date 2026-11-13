@@ -121,7 +121,10 @@ fun SiteCatalogScreen(route: Route.SiteCatalog) {
         when {
             error != null -> Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Message("Yüklenemedi: $error")
-                Button(onClick = { com.streambox.app.sites.SiteBrowserActivity.open(context, route.url ?: site.url, site.name) }) { Text("Tarayıcıda aç") }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { SiteManager.clearCache(); com.streambox.app.cf.CfVerify.open(context, route.url ?: site.url); Nav.back(); Nav.go(route) }) { Text("Siteyi doğrula") }
+                    OutlinedButton(onClick = { com.streambox.app.sites.SiteBrowserActivity.open(context, route.url ?: site.url, site.name) }) { Text("Tarayıcıda aç") }
+                }
             }
             items.isEmpty() && loading -> Loading()
             items.isEmpty() -> Message("Bu sayfada afiş bulunamadı")

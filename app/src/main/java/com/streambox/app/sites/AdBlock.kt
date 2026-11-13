@@ -87,7 +87,8 @@ object SiteRenderer {
             wv.settings.javaScriptEnabled = true
             wv.settings.domStorageEnabled = true
             wv.settings.blockNetworkImage = true
-            wv.settings.userAgentString = com.streambox.app.Net.USER_AGENT
+            // Tarayıcının kendi kimliği: Cloudflare doğrulaması (cf_clearance) bu kimliğe bağlıdır
+            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
             withTimeoutOrNull(30_000) {
                 suspendCancellableCoroutine { cont ->
                     var done = false

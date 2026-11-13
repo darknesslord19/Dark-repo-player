@@ -32,6 +32,7 @@ object SiteResolver {
     private var web: WebView? = null
     private var found = mutableListOf<SniffedVideo>()
     private var finishJob: Runnable? = null
+    private var streamScheduled = false
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** Sayfadaki oynat düğmelerine basar, iframe adreslerini döndürür. */
@@ -52,14 +53,7 @@ object SiteResolver {
 })();
 """
 
-    fun cancel() {
-        main.post {
-            finishJob?.let { main.removeCallbacks(it) }
-            web?.let { it.stopLoading(); it.destroy() }
-            web = null
-            active = null
-        }
-    }
+    fun cancel() { main.post { cancel0() } }
 
     @SuppressLint("SetJavaScriptEnabled")
     fun play(context: Context, site: Site, item: SiteItem) {
@@ -139,7 +133,7 @@ object SiteResolver {
     }
 
     private fun cancel0() {
-        finishJob?.let { main.removeCallbacks(it) }; finishJob = null
+        finishJob?.let { main.removeCallbacks(it) }; finishJob = null; streamScheduled = false
         web?.let { it.stopLoading(); it.destroy() }
         web = null
         active = null
@@ -167,12 +161,16 @@ object SiteResolver {
         val v = SniffedVideo(url, h, "$kind · ${runCatching { java.net.URI(url).host }.getOrNull() ?: ""}", subs)
         found += v
         status = "Video bulundu"
-        // Yayın listesi geldiyse hemen; yalnızca MP4 varsa (reklam olabilir) asıl yayını biraz daha bekle
-        val delay = if (found.any { it.isStream }) 1200L else 5000L
-        finishJob?.let { main.removeCallbacks(it) }
-        val r = Runnable { start(context, site, item) }
-        finishJob = r
-        main.postDelayed(r, delay)
+        // Yayın listesi geldiyse 1,2 sn içinde; yalnızca MP4 varsa (reklam olabilir) en çok 5 sn bekle.
+        // Zamanlayıcı yalnızca ilk yayın listesinde bir kez öne çekilir; yeni adresler gelmeye devam etse de ertelenmez.
+        val stream = v.isStream
+        if (finishJob == null || (stream && !streamScheduled)) {
+            if (stream) streamScheduled = true
+            finishJob?.let { main.removeCallbacks(it) }
+            val r = Runnable { start(context, site, item) }
+            finishJob = r
+            main.postDelayed(r, if (stream) 1200L else 5000L)
+        }
     }
 
     private fun start(context: Context, site: Site, item: SiteItem) {
@@ -188,7 +186,10 @@ object SiteResolver {
                 label = v.label, resumeKey = "site|${item.url.substringBefore('#')}", meta = meta)
         }
         val ctx = com.streambox.app.ActivityTracker.top?.get() ?: context
-        PlayerActivity.start(ctx, items, 0)
+        runCatching { PlayerActivity.start(ctx, items, 0) }.onFailure {
+            AppLog.e("Oynatıcı açılamadı", it)
+            Toast.makeText(context.applicationContext, "Oynatıcı açılamadı: ${it.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     /** Ayara göre: doğrudan oynat ya da reklamsız tarayıcıda aç. */

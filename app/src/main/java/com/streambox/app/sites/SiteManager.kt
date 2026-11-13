@@ -135,10 +135,15 @@ object SiteManager {
         val first = runCatching { fetch(url) }.getOrNull()
         if (first != null && extract(first).flatMap { it.items }.size >= 6) return first
         val html = SiteRenderer.render(appContext, url)
-        return if (html != null) Jsoup.parse(html, url) else first ?: throw java.io.IOException("Site açılamadı")
+        if (html != null) return Jsoup.parse(html, url)
+        if (first != null) return first
+        throw java.io.IOException("Site açılamadı (Cloudflare doğrulaması gerekebilir)")
     }
 
     suspend fun rows(site: Site): List<SiteRow> = extract(load(site.url))
+
+    /** Önbelleği temizle (yeniden dene / doğrulamadan sonra). */
+    fun clearCache() = cache.clear()
 
     suspend fun search(site: Site, q: String): List<SiteItem> {
         val tpl = site.search ?: "${site.url}/?s={q}"
