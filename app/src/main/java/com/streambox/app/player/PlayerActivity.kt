@@ -157,6 +157,7 @@ class PlayerActivity : ComponentActivity() {
                 ui.buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
                     ui.error = null; ui.duration = p.duration.coerceAtLeast(0)
+                    everReady = true
                     // Hazır: istenen konuma gerçekten gidildiyse yedeğe gerek yok
                     if (startPos > 0 && p.currentPosition < startPos - 5_000 && p.isCurrentMediaItemSeekable) p.seekTo(startPos)
                     startPos = 0
@@ -189,6 +190,16 @@ class PlayerActivity : ComponentActivity() {
                 ) {
                     load(item.copy(kind = PlayItem.Kind.HLS), resumePos()); return
                 }
+                // HLS sanıldı ama düz dosya çıktı: bir kez de düz dosya olarak dene
+                if (item.kind == PlayItem.Kind.HLS && !triedPlain &&
+                    error.errorCode in setOf(PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED, PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+                        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED)
+                ) {
+                    triedPlain = true
+                    load(item.copy(kind = PlayItem.Kind.AUTO), resumePos()); return
+                }
+                // Siteden yakalanan videolar: açılmayanı geç, sıradakini dene
+                if (trySiteFallback("açılmadı")) return
                 ui.error = when (error.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> if (item.live)
                         "Sunucu yayını reddetti. Hesabın süresi dolmuş ya da bağlantı sınırı aşılmış olabilir."
@@ -208,6 +219,24 @@ class PlayerActivity : ComponentActivity() {
 
     fun current(): PlayItem = items[ui.index]
 
+    private var triedPlain = false
+    private val failedSite = HashSet<Int>()
+    private var everReady = false
+
+    private fun isSiteItem(i: PlayItem) = i.meta?.contains("\"kind\":\"site\"") == true
+
+    /** Siteden yakalanan birden çok adres varsa, açılmayanı atlayıp sıradakine geçer. */
+    private fun trySiteFallback(why: String): Boolean {
+        val item = current()
+        if (!isSiteItem(item) || items.size < 2) return false
+        failedSite += ui.index
+        val next = items.indices.firstOrNull { it !in failedSite } ?: return false
+        AppLog.i("Site videosu $why (${item.label}), sıradaki deneniyor: ${items[next].label}")
+        android.widget.Toast.makeText(this, "Kaynak açılmadı, sıradaki deneniyor…", android.widget.Toast.LENGTH_SHORT).show()
+        playIndex(next)
+        return true
+    }
+
     private var lastMime: String? = null
     /** IPTV: şu an denenen kimlik sırası (403 alınırsa sonrakine geçilir). */
     private var uaAttempt = 0
@@ -224,6 +253,14 @@ class PlayerActivity : ComponentActivity() {
         uaAttempt = workingUa[hostOf(items[i].url)] ?: 0
         val start = com.streambox.app.WatchHistory.positionFor(items[i].resumeKey)
         startPos = start
+        triedPlain = false; everReady = false
+        // Siteden gelen video 25 sn içinde hiç başlamazsa (sonsuz yükleniyor) sıradakine geç
+        if (isSiteItem(items[i])) {
+            val idx = i
+            window.decorView.postDelayed({
+                if (!isFinishing && ui.index == idx && !everReady && player?.playbackState != Player.STATE_READY) trySiteFallback("yüklenemedi")
+            }, 25_000)
+        }
         load(items[i], start)
         if (start > 0) android.widget.Toast.makeText(this, "Kaldığın yerden devam ediliyor", android.widget.Toast.LENGTH_SHORT).show()
     }

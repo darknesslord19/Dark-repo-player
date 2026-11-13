@@ -32,9 +32,10 @@ object Sniff {
     } catch(e) {}
   }
   // Reklam (preroll/VAST) videolarını ayıkla
-  var adRe = /(^|[\s_-])(ad|ads|advert|preroll|vast|ima|sponsor)([\s_-]|$)/i;
+  // Yalnızca açıkça reklam olan videolar (preroll / VAST / reklam kutusu); sayfa genelindeki "ads" sınıflarına bakılmaz
+  var adRe = /(preroll|vast|(^|[\s_-])ima([\s_-]|$)|(^|[\s_-])ads?[-_]?(video|player|container|overlay|wrap|box|slot)([\s_-]|$)|be-ad)/i;
   function isAdEl(el){
-    for (var n = el, d = 0; n && d < 8; n = n.parentElement, d++) {
+    for (var n = el, d = 0; n && d < 3; n = n.parentElement, d++) {
       var c = (typeof n.className === 'string' ? n.className : '') + ' ' + (n.id || '');
       if (adRe.test(c)) return true;
     }

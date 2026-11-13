@@ -145,8 +145,10 @@ class CfVerifyActivity : AppCompatActivity() {
                     Text(status, color = Muted, fontSize = 12.sp)
                 }
                 TextButton(onClick = {
-                    // Kullanıcı sayfanın açıldığını görüyorsa çerez olmasa da kimliği kaydet
-                    CfVerify.markVerified(web.url ?: "", web.settings.userAgentString); finish()
+                    // Yalnızca gerçekten Cloudflare çerezi alındıysa kaydet (aksi halde diğer isteklere dokunma)
+                    val u = web.url ?: ""
+                    if (CookieManager.getInstance().getCookie(u).orEmpty().contains("cf_clearance")) CfVerify.markVerified(u, web.settings.userAgentString)
+                    finish()
                 }) { Text("Bitti") }
                 IconButton(onClick = { finish() }) { Icon(Icons.Default.Close, "Kapat") }
             }
