@@ -9,7 +9,7 @@
 :root{--bg:#0f1115;--card:#171a21;--card2:#1e222b;--line:#262b35;--txt:#e8eaee;--mut:#8e939b;--acc:#4f8cff;--red:#e50914;--gold:#f5c518}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
-body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+body{-webkit-user-select:none;user-select:none;touch-action:manipulation;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 header{display:flex;align-items:center;gap:10px;padding:16px 18px 6px}
 .logo{width:34px;height:34px;border-radius:10px;background:#0b090b;display:grid;place-items:center;font-weight:900;font-size:15px;letter-spacing:-1px;box-shadow:0 0 0 1px #2a2a2e}
 .logo b{color:#d7d7db}.logo i{color:var(--red);font-style:normal}
@@ -96,13 +96,13 @@ nav button.on{color:var(--acc)}
   <div class="card hint" id="a11y" style="display:none;margin-bottom:12px;background:#2a2312;color:#ffcf66">TV ana ekranında ve diğer uygulamalarda da yön tuşlarının çalışması için TV'de <b>Ayarlar › Telefon kumandası › Erişilebilirlikte aç</b>. StreamBox içinde şimdiden çalışıyor.</div>
   <div class="card" id="np"></div>
   <div class="pad">
-    <div class="pill"><button onclick="k('chup')">▲</button><span>Liste</span><button onclick="k('chdown')">▼</button></div>
+    <div class="pill"><button data-k="chup">▲</button><span>Liste</span><button data-k="chdown">▼</button></div>
     <div class="dpad">
-      <button class="u" onclick="k('up')">▲</button><button class="l" onclick="k('left')">◀</button>
+      <button class="u" data-k="up">▲</button><button class="l" data-k="left">◀</button>
       <button class="ok" onclick="k('ok')">OK</button>
-      <button class="r" onclick="k('right')">▶</button><button class="d" onclick="k('down')">▼</button>
+      <button class="r" data-k="right">▶</button><button class="d" data-k="down">▼</button>
     </div>
-    <div class="pill"><button onclick="k('volup')">+</button><span id="vol">Ses</span><button onclick="k('voldown')">−</button></div>
+    <div class="pill"><button data-k="volup">+</button><span id="vol">Ses</span><button data-k="voldown">−</button></div>
   </div>
   <div class="row4">
     <button class="key" onclick="k('back')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m6-6-6 6 6 6"/></svg>Geri</button>
@@ -207,7 +207,17 @@ function logout(){localStorage.removeItem('pin');PIN='';askPin()}
 function openSheet(h){$('sheetIn').innerHTML=h;$('sheet').classList.add('on')}
 function closeSheet(){$('sheet').classList.remove('on')}
 
-function k(code){navigator.vibrate&&navigator.vibrate(12);api('/api/key?code='+code,{method:'POST'}).then(()=>setTimeout(poll,250)).catch(e=>e.message!=='PIN'&&toast(e.message))}
+// Tuşlar sırayla gönderilir (karışmasın); basılı tutunca tekrar eder
+let kq=Promise.resolve(),pt,pending=0;
+function k(code,rep){if(rep&&pending>1)return;navigator.vibrate&&navigator.vibrate(10);pending++;
+  kq=kq.then(()=>api('/api/key?code='+code,{method:'POST'})).catch(e=>{if(e.message!=='PIN')toast(e.message)}).finally(()=>pending--);
+  clearTimeout(pt);pt=setTimeout(poll,300)}
+document.querySelectorAll('[data-k]').forEach(b=>{
+  let t1,t2;const stop=()=>{clearTimeout(t1);clearInterval(t2)};
+  b.addEventListener('pointerdown',e=>{e.preventDefault();k(b.dataset.k);t1=setTimeout(()=>{t2=setInterval(()=>k(b.dataset.k,1),140)},420)});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop));
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+});
 function fmt(ms){ms=Math.max(0,Math.floor(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')}
 
 function renderState(s){

@@ -160,45 +160,54 @@ object RemoteApi {
             "chup", "chdown" -> {
                 val p = player()
                 if (p != null) onMain { p.playIndex((p.ui.index + if (code == "chup") -1 else 1).mod(p.items.size)) }
-                else if (inApp) inject(if (code == "chup") KeyEvent.KEYCODE_CHANNEL_UP else KeyEvent.KEYCODE_CHANNEL_DOWN)
+                else if (inApp) onMain { repeat(3) { press(if (code == "chup") KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN) } }
                 else media(a, if (code == "chup") KeyEvent.KEYCODE_MEDIA_PREVIOUS else KeyEvent.KEYCODE_MEDIA_NEXT)
             }
             else -> {
                 val k = keyMap[code] ?: return
-                // Uygulama öndeyse gerçek tuş basışı (odak, geri, OK her ekranda çalışır);
-                // değilse erişilebilirlik hizmetiyle tüm cihazda.
-                val done = inApp && inject(k)
-                if (!done) {
-                    if (a11y?.perform(code) != true && !inApp) com.streambox.app.AppLog.i("Kumanda: uygulama dışı kontrol için erişilebilirlik hizmetini aç")
-                }
+                // Uygulama öndeyse kendi ekranımızda uygula; değilse erişilebilirlik hizmetiyle tüm cihazda
+                val done = inApp && (onMain { press(k) } == true)
+                if (!done && a11y?.perform(code) != true && !inApp)
+                    com.streambox.app.AppLog.i("Kumanda: uygulama dışı kontrol için erişilebilirlik hizmetini aç")
             }
         }
     }
 
-    private val instrumentation by lazy { android.app.Instrumentation() }
+    /**
+     * Öndeki StreamBox ekranında tuşa basar: önce dokunmatik kipten çıkar (yoksa Compose öğeleri odak alamaz),
+     * tuşu ekrana iletir; ekran kullanmazsa odağı doğrudan taşır.
+     */
+    private fun press(code: Int): Boolean {
+        val act = ActivityTracker.top?.get() ?: return false
+        val decor = act.window?.decorView ?: return false
+        if (code == KeyEvent.KEYCODE_BACK && act !is PlayerActivity) { act.onBackPressedDispatcherCompat(); return true }
+        if (decor.isInTouchMode) {
+            runCatching { (act.currentFocus ?: decor).requestFocusFromTouch() }
+        }
+        val now = SystemClock.uptimeMillis()
+        val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, 0, -1, 0, 0, android.view.InputDevice.SOURCE_DPAD)
+        val up = KeyEvent(now, now + 20, KeyEvent.ACTION_UP, code, 0, 0, -1, 0, 0, android.view.InputDevice.SOURCE_DPAD)
+        val handled = act.dispatchKeyEvent(down)
+        act.dispatchKeyEvent(up)
+        if (handled) return true
+        val dir = when (code) {
+            KeyEvent.KEYCODE_DPAD_UP -> androidx.compose.ui.focus.FocusDirection.Up
+            KeyEvent.KEYCODE_DPAD_DOWN -> androidx.compose.ui.focus.FocusDirection.Down
+            KeyEvent.KEYCODE_DPAD_LEFT -> androidx.compose.ui.focus.FocusDirection.Left
+            KeyEvent.KEYCODE_DPAD_RIGHT -> androidx.compose.ui.focus.FocusDirection.Right
+            else -> return false
+        }
+        return RemoteFocus.move(act, dir)
+    }
 
-    /** Kendi penceremize gerçek tuş basışı gönderir (ana iş parçacığı dışında çalışmalı). */
-    private fun inject(code: Int): Boolean = runCatching {
-        if (Looper.myLooper() == Looper.getMainLooper()) error("main")
-        instrumentation.sendKeyDownUpSync(code)
-        true
-    }.getOrElse {
-        // Yedek yol: öndeki etkinliğe doğrudan ilet
-        onMain { send(code) } != null
+    private fun android.app.Activity.onBackPressedDispatcherCompat() {
+        if (this is androidx.activity.ComponentActivity) onBackPressedDispatcher.onBackPressed() else @Suppress("DEPRECATION") onBackPressed()
     }
 
     private fun media(a: AudioManager, code: Int) {
         val now = SystemClock.uptimeMillis()
         a.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
         a.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0))
-    }
-
-    /** Öndeki ekrana tuş basışı gönderir (kumandanın tuşuna basılmış gibi). */
-    private fun send(code: Int) {
-        val act = ActivityTracker.top?.get() ?: return
-        val now = SystemClock.uptimeMillis()
-        act.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
-        act.dispatchKeyEvent(KeyEvent(now, now + 30, KeyEvent.ACTION_UP, code, 0))
     }
 
     /** Uygulamayı öne getirip ana ekranda bir işlem yapar (oynatıcı açıksa kapatır). */

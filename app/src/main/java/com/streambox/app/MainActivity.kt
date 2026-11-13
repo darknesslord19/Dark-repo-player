@@ -65,7 +65,7 @@ class MainActivity : androidx.appcompat.app.AppCompatActivity() {
         enableEdgeToEdge()
         com.lagradost.cloudstream3.CommonActivity.setActivityInstance(this)
         handleIntent(intent)
-        setContent { AppTheme { Root() } }
+        setContent { AppTheme { com.streambox.app.remote.RemoteFocus.Register(this); Root() } }
     }
 
     override fun onResume() {

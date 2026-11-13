@@ -132,7 +132,7 @@ class PlayerActivity : ComponentActivity() {
         createPlayer()
         playIndex(pendingIndex)
         window.decorView.postDelayed(saver, 10_000)
-        setContent { PlayerScreen(this) }
+        setContent { com.streambox.app.remote.RemoteFocus.Register(this); PlayerScreen(this) }
     }
 
     private fun createPlayer() {
