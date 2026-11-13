@@ -33,6 +33,7 @@ object CsBridge {
         for (cn in listOf(
             "com.lagradost.api.ContextHelperKt",
             "com.lagradost.api.ContextHelper_androidKt",
+            "com.lagradost.api.ContextHelper_jvmKt",
             "com.lagradost.api.ContextHelperAndroidKt",
             "com.lagradost.cloudstream3.CloudStreamApp",
             "com.lagradost.cloudstream3.CloudStreamApp\$Companion",

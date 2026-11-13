@@ -177,6 +177,9 @@ object PluginManager {
     }
 
     private fun setFilename(instance: Any, path: String) {
+        // BasePlugin.setFilename (yeni sürümler) ya da filename alanı (eski sürümler)
+        val setter = instance.javaClass.methods.firstOrNull { it.name == "setFilename" && it.parameterCount == 1 }
+        if (setter != null) { runCatching { setter.invoke(instance, path) }; return }
         var c: Class<*>? = instance.javaClass
         while (c != null) {
             val f = runCatching { c.getDeclaredField("filename") }.getOrNull()

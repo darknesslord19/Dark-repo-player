@@ -73,16 +73,16 @@ data class StreamOption(val source: String, val label: String, val detail: Strin
 
 /** Üst kısım: arka plan görseli + afiş + başlık + açıklama. */
 @Composable
-private fun Header(title: String, poster: String?, backdrop: String?, meta: String, plot: String?) {
+private fun Header(title: String, poster: String?, backdrop: String?, meta: String, plot: String?, headers: Map<String, String> = emptyMap()) {
     Box(Modifier.fillMaxWidth()) {
         if (backdrop != null) {
-            AsyncImage(backdrop, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(220.dp))
+            AsyncImage(imageModel(backdrop, headers), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(220.dp))
             Box(Modifier.fillMaxWidth().height(220.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Bg))))
         }
         Row(Modifier.padding(start = 16.dp, end = 16.dp, top = if (backdrop != null) 120.dp else 16.dp)) {
             if (poster != null) {
                 AsyncImage(
-                    poster, title, contentScale = ContentScale.Crop,
+                    imageModel(poster, headers), title, contentScale = ContentScale.Crop,
                     modifier = Modifier.width(110.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp))
                 )
             }
@@ -308,7 +308,7 @@ fun CsDetailScreen(card: CsCard) {
             else -> {
                 item {
                     val meta = listOfNotNull(card.api.name, d.year?.toString(), d.tags.take(4).joinToString(", ").ifBlank { null }).joinToString(" · ")
-                    Header(d.title, d.poster ?: card.poster, d.backdrop, meta, d.plot)
+                    Header(d.title, d.poster ?: card.poster, d.backdrop, meta, d.plot, d.headers + card.posterHeaders)
                 }
                 val playData = d.playData
                 if (playData != null) item {

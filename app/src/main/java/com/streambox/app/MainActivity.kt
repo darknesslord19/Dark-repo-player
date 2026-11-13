@@ -62,8 +62,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        com.lagradost.cloudstream3.CommonActivity.setActivityInstance(this)
         handleIntent(intent)
         setContent { AppTheme { Root() } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        com.lagradost.cloudstream3.CommonActivity.setActivityInstance(this)
     }
 
     override fun onNewIntent(intent: Intent) {

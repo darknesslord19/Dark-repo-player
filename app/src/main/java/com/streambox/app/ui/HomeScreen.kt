@@ -84,7 +84,7 @@ fun TmdbItem.toCard() = UiCard(
     backdrop = backdrop, overview = overview,
 ) { Nav.go(Route.TmdbDetail(this)) }
 
-fun CsCard.toCard() = UiCard(key = "cs-${api.name}-$url", title = name, image = poster) {
+fun CsCard.toCard() = UiCard(key = "cs-${api.name}-$url", title = name, image = poster, imageHeaders = posterHeaders) {
     Nav.go(Route.CsDetail(this))
 }
 
@@ -226,7 +226,7 @@ private fun Hero(cards: List<UiCard>) {
         Crossfade(targetState = cards[index.coerceIn(0, cards.size - 1)], animationSpec = tween(700), label = "hero") { c ->
             val img = if (wide) c.backdrop ?: c.image else c.image?.replace("/w342/", "/w780/") ?: c.backdrop
             Box(Modifier.fillMaxSize()) {
-                if (img != null) AsyncImage(img, c.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                if (img != null) AsyncImage(imageModel(img, c.imageHeaders), c.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
                     0f to Color(0x66000000), 0.25f to Color.Transparent, 0.6f to Color(0x660F1115), 1f to Bg)))
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(20.dp, 0.dp, 20.dp, 18.dp),

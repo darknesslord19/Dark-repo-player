@@ -19,11 +19,12 @@ import kotlinx.coroutines.withContext
  * CloudStream sürümü değişip derleme hata verirse düzeltilecek tek yer burası.
  */
 
-data class CsCard(val api: MainAPI, val name: String, val url: String, val poster: String?)
+data class CsCard(val api: MainAPI, val name: String, val url: String, val poster: String?, val posterHeaders: Map<String, String> = emptyMap())
 /** Bir ana sayfa rafı; [reqName]/[reqData] sonraki sayfaları getirmek için. */
 data class CsRow(val title: String, val items: List<CsCard>, val reqName: String = "", val reqData: String = "", val horizontal: Boolean = false)
 data class CsEpisode(val data: String, val title: String, val season: Int?, val episode: Int?, val poster: String?)
 data class CsDetails(
+    val headers: Map<String, String>,
     val title: String,
     val poster: String?,
     val backdrop: String?,
@@ -37,16 +38,36 @@ data class CsLink(val name: String, val url: String, val referer: String, val qu
 data class CsSub(val lang: String, val url: String)
 
 object CsApi {
-    private fun card(api: MainAPI, r: SearchResponse) = CsCard(api, r.name, r.url, r.posterUrl)
+    private fun card(api: MainAPI, r: SearchResponse) = CsCard(api, r.name, r.url, r.posterUrl, imageHeaders(api, r))
+
+    /**
+     * Afiş başlıkları: eklentinin bildirdiği posterHeaders + sitenin Referer'ı.
+     * (posterHeaders yansımayla okunur; sürüm farkında derleme bozulmasın.)
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun imageHeaders(api: MainAPI, item: Any?): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        val base = api.mainUrl.trimEnd('/')
+        if (base.startsWith("http")) out["Referer"] = "$base/"
+        runCatching {
+            val m = item?.javaClass?.methods?.firstOrNull { it.name == "getPosterHeaders" && it.parameterCount == 0 }
+            (m?.invoke(item) as? Map<String, String>)?.let { out.putAll(it) }
+        }
+        return out
+    }
 
     /** Ana sayfa rafları (en fazla [maxRows] tane). */
     suspend fun mainPage(api: MainAPI, maxRows: Int = 6): List<CsRow> = withContext(Dispatchers.IO) {
         if (!api.hasMainPage) return@withContext emptyList()
         val rows = mutableListOf<CsRow>()
         for (mp in api.mainPage.take(maxRows)) {
-            val res = runCatching {
+            val res = try {
                 api.getMainPage(1, MainPageRequest(mp.name, mp.data, mp.horizontalImages))
-            }.getOrNull() ?: continue
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                com.streambox.app.AppLog.e("${api.name} ana sayfa (${mp.name}) hatası", t)
+                null
+            } ?: continue
             for (list in res.items) {
                 if (list.list.isNotEmpty()) rows += CsRow(list.name, list.list.map { card(api, it) }, mp.name, mp.data, mp.horizontalImages)
             }
@@ -78,6 +99,7 @@ object CsApi {
             else -> null
         }
         CsDetails(
+            headers = imageHeaders(api, r),
             title = r.name,
             poster = r.posterUrl,
             backdrop = r.backgroundPosterUrl,

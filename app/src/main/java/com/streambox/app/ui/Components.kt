@@ -67,8 +67,24 @@ fun AppTheme(content: @Composable () -> Unit) {
 /** Ekranda gösterilecek afiş kartı. */
 data class UiCard(
     val key: String, val title: String, val image: String?, val subtitle: String? = null,
-    val backdrop: String? = null, val overview: String? = null, val onClick: () -> Unit,
+    val backdrop: String? = null, val overview: String? = null,
+    /** Afiş isteğinde gönderilecek başlıklar (Referer vb.). */
+    val imageHeaders: Map<String, String> = emptyMap(),
+    val onClick: () -> Unit,
 )
+
+/** Başlıklı resim isteği: birçok site Referer olmadan afiş vermez. */
+@Composable
+fun imageModel(url: String?, headers: Map<String, String>): Any? {
+    if (url == null) return null
+    if (headers.isEmpty()) return url
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    return remember(url, headers) {
+        coil.request.ImageRequest.Builder(ctx).data(url)
+            .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
+            .build()
+    }
+}
 /** Afiş rafı. [more] verilirse "Tümü" ile kategori sayfası açılır (sayfa numarası → kartlar). */
 data class UiRow(val title: String, val cards: List<UiCard>, val more: (suspend (Int) -> List<UiCard>)? = null)
 
@@ -96,7 +112,7 @@ fun PosterCard(card: UiCard, width: Dp = 118.dp, ratio: Float = 2f / 3f, modifie
         ) {
             if (card.image != null) {
                 AsyncImage(
-                    model = card.image, contentDescription = card.title,
+                    model = imageModel(card.image, card.imageHeaders), contentDescription = card.title,
                     contentScale = if (ratio < 1f) ContentScale.Crop else ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(if (ratio < 1f) 0.dp else 8.dp)
                 )

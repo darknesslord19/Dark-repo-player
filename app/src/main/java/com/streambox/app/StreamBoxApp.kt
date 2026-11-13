@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class StreamBoxApp : Application() {
+class StreamBoxApp : Application(), coil.ImageLoaderFactory {
     companion object {
         /** Uygulama bağlamı (WebView gerektiren uyumluluk sınıfları için). */
         @Volatile var instance: StreamBoxApp? = null
@@ -19,6 +19,18 @@ class StreamBoxApp : Application() {
     }
 
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** Afişler de eklentilerle aynı ağ ayarlarıyla (DoH, SSL, tarayıcı kimliği) indirilir. */
+    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)
+        .okHttpClient {
+            Net.client.newBuilder().addInterceptor { chain ->
+                val r = chain.request()
+                chain.proceed(if (r.header("User-Agent") == null) r.newBuilder().header("User-Agent", Net.USER_AGENT).build() else r)
+            }.build()
+        }
+        .crossfade(true)
+        .respectCacheHeaders(false)
+        .build()
 
     override fun onCreate() {
         super.onCreate()
