@@ -43,7 +43,11 @@ data class NuvioStream(
 @SuppressLint("SetJavaScriptEnabled")
 object NuvioRuntime {
     private val main = Handler(Looper.getMainLooper())
-    private val io = Executors.newFixedThreadPool(6)
+    /** Eklentilerin HTTP istekleri için geniş havuz (eski 6 iş parçacığı dar boğazdı). */
+    private val io = Executors.newFixedThreadPool(48)
+    /** Takılan siteler eklentiyi bekletmesin: istek başına üst sınır. */
+    private val fetchClient by lazy { Net.client.newBuilder().callTimeout(25, java.util.concurrent.TimeUnit.SECONDS).build() }
+    private val fetchClientNoRedirect by lazy { fetchClient.newBuilder().followRedirects(false).followSslRedirects(false).build() }
     private var web: WebView? = null
     private var ready = CompletableDeferred<Unit>()
     private val calls = ConcurrentHashMap<Int, CompletableDeferred<String>>()
@@ -65,6 +69,9 @@ object NuvioRuntime {
         wv.settings.domStorageEnabled = true
         wv.settings.blockNetworkImage = true
         wv.addJavascriptInterface(Bridge(), "NativeBridge")
+        // Ekranda olmayan WebView'da zamanlayıcılar yavaşlamasın
+        wv.resumeTimers()
+        wv.onResume()
         wv.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
                 if (ready.isCompleted) return
@@ -99,7 +106,7 @@ object NuvioRuntime {
         type: String,
         season: Int?,
         episode: Int?,
-        timeoutMs: Long = 60_000,
+        timeoutMs: Long = 45_000,
     ): List<NuvioStream> {
         ensure(context)
         val key = scraper.key
@@ -190,8 +197,7 @@ object NuvioRuntime {
                         else -> null
                     }
                     b.method(method, reqBody)
-                    val client = if (follow) Net.client
-                    else Net.client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+                    val client = if (follow) fetchClient else fetchClientNoRedirect
                     client.newCall(b.build()).execute().use { r ->
                         val h = JSONObject()
                         r.headers.names().forEach { n -> h.put(n, r.headers.values(n).joinToString(", ")) }

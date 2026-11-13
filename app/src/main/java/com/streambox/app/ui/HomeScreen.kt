@@ -76,6 +76,7 @@ import com.streambox.app.plugins.CsBridge
 import com.streambox.app.plugins.CsCard
 import com.streambox.app.plugins.PluginManager
 import com.streambox.app.plugins.RepoManager
+import com.streambox.app.nuvio.NuvioRepoManager
 import kotlinx.coroutines.delay
 
 fun TmdbItem.toCard() = UiCard(
@@ -118,14 +119,20 @@ fun HomeScreen() {
     val loadedCount = PluginManager.results.size
     val providers = remember(loadedCount) { CsBridge.providers().filter { it.hasMainPage } }
     val selected = Settings.homeSource
+    val isNuvio = selected.startsWith("nuvio:")
+    // Nuvio seçimleri TMDB kataloğunu kullanır (eklentiler TMDB kimliğiyle çalışır)
+    val catalogKey = if (isNuvio) TMDB_SOURCE else selected
     val api = providers.firstOrNull { it.name == selected }
-    var rows by remember(selected) { mutableStateOf(Nav.homeCache[selected]) }
-    var error by remember(selected) { mutableStateOf<String?>(null) }
+    var rows by remember(catalogKey) { mutableStateOf(Nav.homeCache[catalogKey]) }
+    var error by remember(catalogKey) { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selected, api) {
-        if (Nav.homeCache[selected] != null) { rows = Nav.homeCache[selected]; return@LaunchedEffect }
-        if (selected != TMDB_SOURCE && api == null) {
+    LaunchedEffect(catalogKey, api) {
+        if (Nav.homeCache[catalogKey] != null) { rows = Nav.homeCache[catalogKey]; return@LaunchedEffect }
+        if (isNuvio && selected != "nuvio:*" && NuvioRepoManager.repos.none { "nuvio:" + it.url == selected }) {
+            Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect
+        }
+        if (catalogKey != TMDB_SOURCE && api == null) {
             // eklentiler henüz yükleniyor olabilir
             if (loadedCount < PluginManager.installed.count { it.enabled }) return@LaunchedEffect
             Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect
@@ -141,16 +148,21 @@ fun HomeScreen() {
                     UiRow(r.title, r.items.map { it.toCard() }) { page -> CsApi.mainPageMore(api, r, page).map { it.toCard() } }
                 }
             }
-            Nav.homeCache[selected] = result
+            Nav.homeCache[catalogKey] = result
             rows = result
         } catch (e: Throwable) {
-            AppLog.e("Ana sayfa yüklenemedi ($selected)", e)
+            AppLog.e("Ana sayfa yüklenemedi ($catalogKey)", e)
             error = AppLog.describe(e)
             rows = emptyList()
         }
     }
 
-    val sourceLabel = if (selected == TMDB_SOURCE) "Keşfet" else selected
+    val sourceLabel = when {
+        selected == TMDB_SOURCE -> "Keşfet"
+        selected == "nuvio:*" -> "Nuvio"
+        isNuvio -> NuvioRepoManager.repos.firstOrNull { "nuvio:" + it.url == selected }?.name ?: "Nuvio"
+        else -> selected
+    }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
             val r = rows
@@ -183,7 +195,7 @@ fun HomeScreen() {
             Text("Box", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Accent)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { Nav.tab(Route.Search) }) { Icon(Icons.Default.Search, "Ara", tint = Color.White) }
-            SourcePill(sourceLabel, selected == TMDB_SOURCE) { picker = true }
+            SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio) { picker = true }
         }
     }
 
@@ -306,7 +318,29 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
             }
             LazyColumn(Modifier.fillMaxWidth().height(520.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
-                    SourceRow("Keşfet", "TMDB · Nuvio eklentileriyle", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
+                    SourceRow("Keşfet", "TMDB kataloğu · tüm Nuvio eklentileri", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
+                }
+                // Nuvio repoları: TMDB kataloğu + yalnızca o reponun eklentileriyle yayın arama
+                val nuvioRepos = NuvioRepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
+                if (nuvioRepos.isNotEmpty() && category == 0) {
+                    item(key = "g-nuvio") {
+                        Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
+                                Text("N", color = Color(0xFF34C759), fontWeight = FontWeight.Bold)
+                            }
+                            Text("NUVIO", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
+                                modifier = Modifier.padding(start = 12.dp).weight(1f))
+                            Text("${NuvioRepoManager.scrapers.count { it.enabled }} eklenti", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    item(key = "nuvio-all") {
+                        SourceRow("Tüm Nuvio eklentileri", "TMDB kataloğu · ${NuvioRepoManager.scrapers.count { it.enabled }} etkin eklenti",
+                            Icons.Default.Extension, selected == "nuvio:*") { onPick("nuvio:*") }
+                    }
+                    items(nuvioRepos) { r ->
+                        val n = NuvioRepoManager.scrapers.count { it.repoUrl == r.url && it.enabled }
+                        SourceRow(r.name, "Nuvio · $n etkin eklenti", Icons.Default.Extension, selected == "nuvio:" + r.url) { onPick("nuvio:" + r.url) }
+                    }
                 }
                 groups.forEach { (repo, list) ->
                     val isCollapsed = collapsed[repo] == true

@@ -154,8 +154,15 @@ object NuvioRepoManager {
         return text
     }
 
+    /** Aynı içerik için bu oturumda bulunan yayınlar (yeniden açınca anında gelsin). */
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, List<Pair<NuvioScraper, List<NuvioStream>>>>()
+
+    /** Etkin eklentiler; [repoUrl] verilirse yalnızca o reponunkiler. */
+    fun active(type: String, repoUrl: String?) =
+        scrapers.filter { it.enabled && type in it.supportedTypes && (repoUrl == null || it.repoUrl == repoUrl) }
+
     /**
-     * Etkin tüm eklentileri paralel çalıştırır. [onResult] her eklenti bittiğinde çağrılır
+     * Etkin eklentileri paralel çalıştırır. [onResult] her eklenti bittiğinde çağrılır
      * (ekranda sonuçlar geldikçe görünsün diye).
      */
     suspend fun findStreams(
@@ -164,25 +171,31 @@ object NuvioRepoManager {
         type: String,
         season: Int?,
         episode: Int?,
+        repoUrl: String? = null,
         onResult: (NuvioScraper, List<NuvioStream>?, String?) -> Unit,
     ) = coroutineScope {
-        val active = scrapers.filter { it.enabled && type in it.supportedTypes }
+        val key = "$tmdbId|$type|$season|$episode|$repoUrl"
+        cache[key]?.let { hit -> onMain { hit.forEach { (s, l) -> onResult(s, l, null) } }; return@coroutineScope }
+        val found = java.util.Collections.synchronizedList(mutableListOf<Pair<NuvioScraper, List<NuvioStream>>>())
+        val active = active(type, repoUrl)
         active.map { s ->
             async {
                 try {
                     val code = code(s)
-                    val res = withTimeoutOrNull(75_000) {
+                    val res = withTimeoutOrNull(50_000) {
                         NuvioRuntime.getStreams(context, s, code, tmdbId, type, season, episode)
                     }
+                    if (!res.isNullOrEmpty()) found += s to res
                     onMain { onResult(s, res ?: emptyList(), if (res == null) "zaman aşımı" else null) }
                 } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     AppLog.e("Nuvio ${s.name}: ${e.message}")
                     onMain { onResult(s, null, e.message) }
                 }
             }
         }.forEach { it.await() }
+        if (found.isNotEmpty()) cache[key] = found.toList()
     }
 }
-
 private fun JSONArray?.toList(): List<String> =
     if (this == null) emptyList() else (0 until length()).map { optString(it) }.filter { it.isNotBlank() }

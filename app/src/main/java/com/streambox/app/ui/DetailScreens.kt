@@ -177,17 +177,20 @@ fun TmdbDetailScreen(item: TmdbItem) {
             episodes = runCatching { Tmdb.season(item.id, season) }.getOrDefault(emptyList())
         }
     }
-    // Eklentileri çalıştır
+    // Eklentileri çalıştır (ana sayfada bir Nuvio reposu seçiliyse yalnızca onunkiler)
     LaunchedEffect(request) {
         val (s, e) = request ?: return@LaunchedEffect
         options.clear()
-        val total = NuvioRepoManager.scrapers.count { it.enabled && item.type in it.supportedTypes }
+        val repo = nuvioRepoFilter()
+        val total = NuvioRepoManager.active(item.type, repo).size
         if (total == 0) { status = "Etkin Nuvio eklentisi yok. Eklentiler > Nuvio'dan repo ekle."; busy = false; return@LaunchedEffect }
         var done = 0
+        var failed = 0
         busy = true
-        status = "0 / $total eklenti tamamlandı"
-        NuvioRepoManager.findStreams(context, item.id, item.type, s, e) { scraper, list, err ->
+        status = "0 / $total eklenti"
+        NuvioRepoManager.findStreams(context, item.id, item.type, s, e, repo) { scraper, list, err ->
             done++
+            if (err != null || list == null) failed++
             list?.forEach { st ->
                 options += StreamOption(
                     source = scraper.name,
@@ -196,10 +199,13 @@ fun TmdbDetailScreen(item: TmdbItem) {
                     item = PlayItem(dialogTitle ?: item.title, st.url, st.headers),
                 )
             }
-            if (err != null) AppLog.e("${scraper.name}: $err")
-            status = "$done / $total eklenti tamamlandı · ${options.size} yayın"
+            // en yüksek kalite üstte
+            val sorted = options.sortedByDescending { qualityScore(it.label + " " + (it.detail ?: "")) }
+            options.clear(); options.addAll(sorted)
+            status = "$done / $total eklenti · ${options.size} yayın" + if (failed > 0) " · $failed sonuç vermedi" else ""
         }
         busy = false
+        status = "${options.size} yayın · $total eklenti tarandı" + if (failed > 0) " · $failed sonuç vermedi" else ""
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
@@ -336,4 +342,15 @@ fun CsDetailScreen(card: CsCard) {
     target?.let { (title, _) ->
         StreamsDialog(title, options, if (busy) "Bağlantılar aranıyor… (${options.size})" else "${options.size} bağlantı", busy) { target = null }
     }
+}
+
+/** Ana sayfada seçili Nuvio reposu (yoksa null: tüm etkin eklentiler). */
+fun nuvioRepoFilter(): String? =
+    com.streambox.app.Settings.homeSource.takeIf { it.startsWith("nuvio:") && it != "nuvio:*" }?.removePrefix("nuvio:")
+
+/** Kalite etiketinden sıralama puanı (4K > 1080 > 720 …). */
+fun qualityScore(text: String): Int {
+    val t = text.lowercase()
+    if ("2160" in t || "4k" in t || "uhd" in t) return 2160
+    return Regex("(\\d{3,4})p").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: 0
 }
