@@ -6,7 +6,7 @@
 
     <application
         android:name=".StreamBoxApp"
-        android:label="StreamBox"
+        android:label="DarknesBox"
         android:icon="@mipmap/ic_launcher_purple"
         android:roundIcon="@mipmap/ic_launcher_purple"
         android:banner="@drawable/tv_banner"

@@ -18,7 +18,7 @@ object AppLog {
     fun e(msg: String, t: Throwable? = null) = add("E", msg, t)
 
     private fun add(level: String, msg: String, t: Throwable?) {
-        if (level == "E") Log.e("StreamBox", msg, t) else Log.i("StreamBox", msg)
+        if (level == "E") Log.e("DarknesBox", msg, t) else Log.i("DarknesBox", msg)
         val text = buildString {
             append(fmt.format(Date())).append(' ').append(level).append("  ").append(msg)
             if (t != null) append("\n    ").append(describe(t))

@@ -213,7 +213,7 @@ fun SettingsScreen() {
         item {
             Column(Modifier.padding(24.dp, 18.dp, 24.dp, 4.dp)) {
                 Text("Ayarlar", fontSize = 32.sp, fontWeight = FontWeight.Black)
-                Text("StreamBox ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
+                Text("DarknesBox ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
             }
         }
         item {
@@ -244,7 +244,7 @@ fun SettingsScreen() {
                     Nav.go(Route.SettingsPage("remote"))
                 }
                 GroupDivider()
-                SettingRow(Icons.Default.Wifi, Color(0xFF34C759), "Wi-Fi senkronizasyon", "Aynı ağdaki StreamBox'larla eşitle") {
+                SettingRow(Icons.Default.Wifi, Color(0xFF34C759), "Wi-Fi senkronizasyon", "Aynı ağdaki DarknesBox'larla eşitle") {
                     Nav.go(Route.SettingsPage("sync"))
                 }
                 GroupDivider()
@@ -442,7 +442,7 @@ private fun LogPage() {
                 Text("Günlük", fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 6.dp).weight(1f))
                 Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFF23272F)).clickable {
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    cm.setPrimaryClip(ClipData.newPlainText("StreamBox günlük", AppLog.lines.joinToString("\n")))
+                    cm.setPrimaryClip(ClipData.newPlainText("DarknesBox günlük", AppLog.lines.joinToString("\n")))
                     toast(context, "Günlük kopyalandı")
                 }, contentAlignment = Alignment.Center) { Icon(Icons.Default.ContentCopy, "Kopyala", tint = Color.White, modifier = Modifier.size(20.dp)) }
                 Spacer(Modifier.size(8.dp))
@@ -471,7 +471,7 @@ private fun LogPage() {
 @Composable
 private fun AboutPage() {
     SubPage("Hakkında") {
-        Block("StreamBox ${BuildConfig.VERSION_NAME}") {
+        Block("DarknesBox ${BuildConfig.VERSION_NAME}") {
             Text("CloudStream (.cs3) ve Nuvio eklentileri, TMDB kataloğu ve IPTV listeleri için oynatıcı. " +
                 "Uygulama içerik barındırmaz; eklentileri ve listeleri kullanıcı ekler.", color = Color(0xFFC8CBD0), fontSize = 14.sp)
             Spacer(Modifier.height(10.dp))

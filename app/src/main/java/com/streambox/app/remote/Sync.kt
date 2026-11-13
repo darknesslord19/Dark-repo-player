@@ -20,7 +20,7 @@ data class Peer(val name: String, val host: String, val port: Int) {
     val address get() = "$host:$port"
 }
 
-/** Aynı ağdaki StreamBox cihazlarını bulur; yedeği alır ya da gönderir. */
+/** Aynı ağdaki DarknesBox cihazlarını bulur; yedeği alır ya da gönderir. */
 object Sync {
     val peers = mutableStateListOf<Peer>()
     private var nsd: NsdManager? = null
@@ -69,7 +69,7 @@ object Sync {
                 val host = i.host?.hostAddress
                 val self = RemoteServer.localIp()
                 if (host != null && !(host == self && i.port == RemoteServer.port)) {
-                    val peer = Peer(i.serviceName.removePrefix("StreamBox · "), host, i.port)
+                    val peer = Peer(i.serviceName.removePrefix("StreamBox · ").removePrefix("DarknesBox · "), host, i.port)
                     com.streambox.app.onMain { peers.removeAll { it.address == peer.address }; peers += peer }
                 }
                 synchronized(pending) { resolving = false }

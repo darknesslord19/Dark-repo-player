@@ -281,7 +281,7 @@ fun HomeScreen() {
                 .statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Stream", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
+            Text("Darknes", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
             Text("Box", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Accent)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { Nav.tab(Route.Search) }) { Icon(Icons.Default.Search, "Ara", tint = Color.White) }

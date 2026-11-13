@@ -45,7 +45,7 @@ object CatalogManager {
         }
     }
 
-    private val jsonHeaders = mapOf("Accept" to "application/json", "User-Agent" to "Mozilla/5.0 (Linux; Android 13) StreamBox")
+    private val jsonHeaders = mapOf("Accept" to "application/json", "User-Agent" to "Mozilla/5.0 (Linux; Android 13) DarknesBox")
 
     private suspend fun fetchManifest(b: String): JSONObject {
         val text = runCatching { Net.getText("$b/manifest.json", jsonHeaders) }.getOrNull()?.takeIf { it.trim().startsWith("{") }

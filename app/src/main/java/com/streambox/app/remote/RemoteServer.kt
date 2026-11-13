@@ -37,7 +37,7 @@ class Res(val code: Int, val type: String, val body: ByteArray, val extra: Map<S
 
 /**
  * Yerel ağ sunucusu: telefondan kumanda (tarayıcıyla), yedek indirme/yükleme ve
- * aynı Wi-Fi'deki StreamBox'lar arası senkron. Her API isteği PIN ister.
+ * aynı Wi-Fi'deki DarknesBox'lar arası senkron. Her API isteği PIN ister.
  */
 object RemoteServer {
     const val PORT = 8686
@@ -106,12 +106,12 @@ object RemoteServer {
         running = false
     }
 
-    /** Ağdaki StreamBox'ların bu cihazı bulabilmesi için (mDNS/NSD). */
+    /** Ağdaki DarknesBox'ların bu cihazı bulabilmesi için (mDNS/NSD). */
     private fun register() {
         runCatching {
             val m = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
             val info = NsdServiceInfo().apply {
-                serviceName = "StreamBox · ${Backup.deviceName(appContext)}"
+                serviceName = "DarknesBox · ${Backup.deviceName(appContext)}"
                 serviceType = SERVICE_TYPE
                 port = this@RemoteServer.port
             }

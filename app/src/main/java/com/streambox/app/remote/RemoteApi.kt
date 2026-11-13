@@ -44,7 +44,7 @@ object RemoteApi {
     private fun player() = PlayerActivity.current?.get()?.takeIf { !it.isFinishing }
 
     fun hello(ctx: Context): JSONObject = JSONObject()
-        .put("app", "StreamBox").put("device", Backup.deviceName(ctx)).put("version", BuildConfig.VERSION_NAME)
+        .put("app", "DarknesBox").put("device", Backup.deviceName(ctx)).put("version", BuildConfig.VERSION_NAME)
         .put("tv", ctx.packageManager.hasSystemFeature("android.software.leanback"))
 
     fun handle(ctx: Context, r: Req): Res = when (r.path) {
@@ -173,7 +173,7 @@ object RemoteApi {
         }
     }
 
-    /** Öndeki StreamBox ekranında tuşu uygular. */
+    /** Öndeki DarknesBox ekranında tuşu uygular. */
     private fun nav(code: String): Boolean = onMain {
         val act = ActivityTracker.top?.get() ?: return@onMain false
         RemoteNav.handle(act, code)

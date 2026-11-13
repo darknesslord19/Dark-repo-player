@@ -43,14 +43,14 @@ object Backup {
             files.put("profiles/${f.name}", Base64.encodeToString(f.readBytes(), Base64.NO_WRAP))
         }
         return JSONObject()
-            .put("app", "StreamBox").put("version", 1)
+            .put("app", "DarknesBox").put("version", 1)
             .put("device", deviceName(context)).put("created", System.currentTimeMillis())
             .put("prefs", prefs).put("files", files)
     }
 
     /** Paketi uygular. Ardından uygulama yeniden başlatılmalı. */
     fun restore(context: Context, data: JSONObject) {
-        require(data.optString("app") == "StreamBox") { "Bu bir StreamBox yedeği değil" }
+        require(data.optString("app") in setOf("StreamBox", "DarknesBox")) { "Bu bir DarknesBox yedeği değil" }
         val prefs = data.getJSONObject("prefs")
         prefs.keys().forEach { name ->
             if (name in skip) return@forEach

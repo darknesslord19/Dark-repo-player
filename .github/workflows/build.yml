@@ -41,19 +41,24 @@ jobs:
           done
 
       - name: APK'yı yeniden adlandır
-        run: cp app/build/outputs/apk/release/app-release.apk StreamBox.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk DarknesBox.apk
+          # eski bağlantı çalışmaya devam etsin
+          cp DarknesBox.apk StreamBox.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamBox-apk
-          path: StreamBox.apk
+          name: DarknesBox-apk
+          path: DarknesBox.apk
 
-      # Telefondan kolay indirmek için: Releases > "latest" altında StreamBox.apk
+      # Telefondan kolay indirmek için: Releases > "latest" altında DarknesBox.apk
       - name: Release'e yükle
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: StreamBox (son derleme)
+          name: DarknesBox (son derleme)
           prerelease: true
-          files: StreamBox.apk
+          files: |
+            DarknesBox.apk
+            StreamBox.apk
           body: "Derleme #${{ github.run_number }} — ${{ github.sha }}"

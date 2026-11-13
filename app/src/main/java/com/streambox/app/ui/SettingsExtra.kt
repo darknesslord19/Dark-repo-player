@@ -81,10 +81,10 @@ fun RemotePage() {
             LaunchedEffect(Unit) { while (true) { full = com.streambox.app.remote.RemoteAccessibilityService.isEnabled(context); kotlinx.coroutines.delay(1000) } }
             Block("Tüm cihazı kontrol et",
                 "Uygulama öndeyken yön tuşları her zaman çalışır. TV ana ekranında ve diğer uygulamalarda da yön tuşları, OK, geri ve ana ekran " +
-                "çalışsın istersen erişilebilirlik ayarlarından \"StreamBox telefon kumandası\" hizmetini aç.") {
+                "çalışsın istersen erişilebilirlik ayarlarından \"DarknesBox telefon kumandası\" hizmetini aç.") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (full) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = if (full) Color(0xFF34C759) else Color(0xFFFF9F0A))
-                    Text(if (full) "Açık: tüm cihaz kontrol edilebilir" else "Kapalı: yalnızca StreamBox içinde",
+                    Text(if (full) "Açık: tüm cihaz kontrol edilebilir" else "Kapalı: yalnızca DarknesBox içinde",
                         modifier = Modifier.padding(start = 10.dp).weight(1f), fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(10.dp))
@@ -170,7 +170,7 @@ fun BackupPage() {
         }
         Block("Diğer yollar") {
             SettingRow(Icons.Default.QrCode2, Accent, "Telefondan yedekle", "Telefon kumandasındaki Yedek sekmesi") { Nav.go(Route.SettingsPage("remote")) }
-            SettingRow(Icons.Default.Wifi, Color(0xFF34C759), "Wi-Fi senkronizasyon", "Başka bir StreamBox'a gönder / ondan al") { Nav.go(Route.SettingsPage("sync")) }
+            SettingRow(Icons.Default.Wifi, Color(0xFF34C759), "Wi-Fi senkronizasyon", "Başka bir DarknesBox'a gönder / ondan al") { Nav.go(Route.SettingsPage("sync")) }
         }
     }
     pendingRestore?.let { data ->
@@ -201,7 +201,7 @@ fun SyncPage() {
         Sync.startDiscovery(context)
         onDispose { Sync.stopDiscovery() }
     }
-    SubPage("Wi-Fi senkronizasyon", "Aynı ağdaki StreamBox cihazları arasında") {
+    SubPage("Wi-Fi senkronizasyon", "Aynı ağdaki DarknesBox cihazları arasında") {
         Block("Bu cihaz", "Diğer cihazdan bağlanırken bu PIN sorulur.") {
             if (!RemoteServer.running) {
                 Text("Senkron için \"Telefon kumandası\" açık olmalı.", color = Color(0xFFFF9F0A), fontSize = 14.sp)
@@ -216,7 +216,7 @@ fun SyncPage() {
                 Text(RemoteServer.pin.chunked(3).joinToString(" "), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Accent)
             }
         }
-        Block("Ağdaki cihazlar", "Diğer cihazda da StreamBox açık ve kumanda etkin olmalı.") {
+        Block("Ağdaki cihazlar", "Diğer cihazda da DarknesBox açık ve kumanda etkin olmalı.") {
             if (Sync.peers.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text("Aranıyor…", color = Muted, modifier = Modifier.padding(start = 10.dp))
