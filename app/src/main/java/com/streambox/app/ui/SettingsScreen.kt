@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.ContentCopy
@@ -253,6 +254,9 @@ fun SettingsScreen() {
                 }
             }
             SettingGroup("İçerik") {
+                SettingRow(Icons.Default.Language, Color(0xFF5AC8FA), "Siteler",
+                    "${com.streambox.app.sites.SiteManager.sites.size} site · reklamsız tarayıcı") { Nav.go(Route.SettingsPage("sites")) }
+                GroupDivider()
                 SettingRow(Icons.Default.Movie, Color(0xFF01B4E4), "TMDB ayarları", "Katalog ve afişler · ${Settings.language}") {
                     Nav.go(Route.SettingsPage("tmdb"))
                 }
@@ -317,6 +321,7 @@ fun SettingsPageScreen(page: String) {
         "backup" -> BackupPage()
         "sync" -> SyncPage()
         "profiles" -> ProfilesPage()
+        "sites" -> SitesPage()
         else -> AboutPage()
     }
 }

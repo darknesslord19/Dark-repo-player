@@ -181,6 +181,30 @@ fun HomeScreen() {
             rows = result
             return@LaunchedEffect
         }
+        // Eklenen site: ana sayfasındaki afişler raf olarak
+        if (selected.startsWith("site:")) {
+            val site = com.streambox.app.sites.SiteManager.sites.firstOrNull { "site:" + it.id == selected }
+            if (site == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
+            rows = null; error = null
+            val ctx: android.content.Context = com.lagradost.cloudstream3.CommonActivity.activity ?: com.streambox.app.StreamBoxApp.instance!!
+            val headers = mapOf("Referer" to site.url + "/")
+            try {
+                val result = com.streambox.app.sites.SiteManager.rows(site).map { r ->
+                    UiRow(r.title, r.items.map { it ->
+                        UiCard("site-" + it.url, it.title, it.poster, it.subtitle, imageHeaders = headers) {
+                            com.streambox.app.sites.SiteBrowserActivity.open(ctx, it.url, it.title, it.poster)
+                        }
+                    })
+                }
+                if (result.isNotEmpty()) Nav.homeCache[catalogKey] = result
+                else error = "Sitede afiş bulunamadı. Siteyi tarayıcıda açmak için Ayarlar › Siteler'i kullan."
+                rows = result
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLog.e("Site yüklenemedi: ${site.name}", e); error = AppLog.describe(e); rows = emptyList()
+            }
+            return@LaunchedEffect
+        }
         val catalog = if (selected.startsWith("catalog:")) CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected } else null
         if (selected.startsWith("catalog:") && catalog == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
         if (catalog != null) {
@@ -245,6 +269,7 @@ fun HomeScreen() {
         isNuvio -> NuvioRepoManager.repos.firstOrNull { "nuvio:" + it.url == selected }?.name ?: "Nuvio"
         selected.startsWith("iptv:") -> com.streambox.app.iptv.IptvStore.playlists.firstOrNull { "iptv:" + it.id == selected }?.name ?: "Darknes IPTV"
         selected.startsWith("catalog:") -> CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected }?.name ?: "Katalog"
+        selected.startsWith("site:") -> com.streambox.app.sites.SiteManager.sites.firstOrNull { "site:" + it.id == selected }?.name ?: "Site"
         else -> selected
     }
     Box(Modifier.fillMaxSize()) {
@@ -285,7 +310,7 @@ fun HomeScreen() {
             Text("Box", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Accent)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { Nav.tab(Route.Search) }) { Icon(Icons.Default.Search, "Ara", tint = Color.White) }
-            SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio || selected.startsWith("catalog:")) { picker = true }
+            SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio || selected.startsWith("catalog:") || selected.startsWith("site:")) { picker = true }
         }
     }
 
@@ -427,6 +452,23 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                         val st = com.streambox.app.iptv.IptvStore.stats[pl.id]
                         SourceRow(pl.name, "IPTV · ${pl.kind}" + (st?.let { " · ${it.channels} kanal" } ?: ""),
                             Icons.Default.Explore, selected == "iptv:" + pl.id) { onPick("iptv:" + pl.id) }
+                    }
+                }
+                // Eklenen siteler (reklamsız tarayıcıyla açılır)
+                val siteList = com.streambox.app.sites.SiteManager.sites.filter { it.onHome && (query.isBlank() || it.name.contains(query, true)) }
+                if (siteList.isNotEmpty() && category == 0) {
+                    item(key = "g-sites") {
+                        Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
+                                Text("W", color = Color(0xFF5AC8FA), fontWeight = FontWeight.Bold)
+                            }
+                            Text("SİTELER", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
+                                modifier = Modifier.padding(start = 12.dp).weight(1f))
+                            Text("${siteList.size}", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    items(siteList) { st ->
+                        SourceRow(st.name, "Site · ${st.host} · reklamsız", Icons.Default.Explore, selected == "site:" + st.id) { onPick("site:" + st.id) }
                     }
                 }
                 // Stremio katalog eklentileri

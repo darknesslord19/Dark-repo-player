@@ -46,7 +46,8 @@ fun SearchScreen() {
         rows.clear()
         val providers = CsBridge.providers()
         val catalogs = com.streambox.app.catalog.CatalogManager.addons.flatMap { a -> a.catalogs.filter { it.hasSearch }.map { a to it } }
-        running = 1 + providers.size + catalogs.size
+        val sites = com.streambox.app.sites.SiteManager.sites.toList()
+        running = 1 + providers.size + catalogs.size + sites.size
         job = scope.launch {
             launch {
                 runCatching { Tmdb.search(q) }
@@ -59,6 +60,21 @@ fun SearchScreen() {
                     runCatching { com.streambox.app.catalog.CatalogManager.items(a, c, search = q) }
                         .onSuccess { l -> if (l.isNotEmpty()) rows.add(UiRow("${a.name} · ${c.name} (${if (c.type == "series") "Dizi" else "Film"})", l.map { it.toCard() })) }
                         .onFailure { AppLog.e("${a.name} arama", it) }
+                    running--
+                }
+            }
+            sites.forEach { st ->
+                launch {
+                    runCatching { com.streambox.app.sites.SiteManager.search(st, q) }
+                        .onSuccess { l ->
+                            if (l.isNotEmpty()) rows.add(UiRow("${st.name} · site", l.map { it ->
+                                UiCard("site-" + it.url, it.title, it.poster, it.subtitle, imageHeaders = mapOf("Referer" to st.url + "/")) {
+                                    val ctx = com.lagradost.cloudstream3.CommonActivity.activity ?: com.streambox.app.StreamBoxApp.instance!!
+                                    com.streambox.app.sites.SiteBrowserActivity.open(ctx, it.url, it.title, it.poster)
+                                }
+                            }))
+                        }
+                        .onFailure { AppLog.e("${st.name} arama", it) }
                     running--
                 }
             }

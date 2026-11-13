@@ -96,7 +96,7 @@ private fun ContinueCard(e: HistoryEntry, onClick: () -> Unit, onLongClick: () -
             }
             // tür etiketi
             Text(
-                when (e.kind) { "iptv" -> "CANLI"; "cs" -> e.meta.optString("api").uppercase(); else -> "NUVIO" },
+                when (e.kind) { "iptv" -> "CANLI"; "cs" -> e.meta.optString("api").uppercase(); "site" -> "SİTE"; else -> "NUVIO" },
                 fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
                 modifier = Modifier.align(Alignment.TopStart).padding(6.dp).clip(RoundedCornerShape(4.dp))
                     .background(if (isIptv) Color(0xFFE53935) else Color(0xCC000000)).padding(horizontal = 5.dp, vertical = 2.dp)
@@ -138,6 +138,7 @@ fun openHistory(e: HistoryEntry) {
             if (api == null) Toast.makeText(ctx, "\"${m.optString("api")}\" eklentisi yüklü değil", Toast.LENGTH_SHORT).show()
             else Nav.go(Route.CsDetail(CsCard(api, e.title, m.optString("url"), e.poster)))
         }
+        "site" -> com.streambox.app.sites.SiteBrowserActivity.open(ctx, m.optString("url"), e.title, e.poster)
         "tmdb" -> Nav.go(Route.TmdbDetail(TmdbItem(
             m.optInt("id"), m.optString("type"), e.title, e.poster, m.optString("backdrop").ifBlank { null },
             m.optString("overview"), m.optString("year").ifBlank { null }, m.optDouble("rating").takeIf { !it.isNaN() && it > 0 },
