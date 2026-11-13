@@ -16,11 +16,11 @@ jobs:
           curl -sSL -o app.jar https://github.com/recloudstream/cloudstream/releases/download/pre-release/classes.jar
           curl -sSL -o lib.jar https://jitpack.io/com/github/recloudstream/cloudstream/library-jvm/v4.8.0/library-jvm-v4.8.0.jar || true
           ls -la app.jar lib.jar
-      - name: İnceleme 2
+      - name: İnceleme 3
         run: |
-          echo "== lib com/lagradost/api"; unzip -Z1 lib.jar | grep '^com/lagradost/api/' | grep -v '\$' 
-          for c in $(unzip -Z1 lib.jar | grep '^com/lagradost/api/.*\.class$' | grep -v '\$' | sed 's/\.class$//; s#/#.#g'); do echo "===== $c"; javap -classpath lib.jar "$c" | head -30; done
-          echo "===== CommonActivity (tam)"; javap -classpath app.jar com.lagradost.cloudstream3.CommonActivity | grep -v "Event\|Cast" 
-          echo "===== MainActivity\$Companion"; javap -classpath app.jar 'com.lagradost.cloudstream3.MainActivity$Companion' | head -60
-          echo "===== DdosGuardKiller ve diğer"; javap -classpath app.jar 'com.lagradost.cloudstream3.utils.Editor' | head -20
-          echo "===== lib WebViewResolver var mı"; unzip -Z1 lib.jar | grep -i 'webview' 
+          echo "== lib MainActivityKt / WebViewResolver"; unzip -Z1 lib.jar | grep -iE 'MainActivityKt|WebViewResolver|network/' | head -40
+          echo "== app WebViewResolver"; unzip -Z1 app.jar | grep -i 'WebViewResolver' | head
+          javap -classpath app.jar com.lagradost.cloudstream3.network.WebViewResolver || true
+          javap -classpath app.jar 'com.lagradost.cloudstream3.network.WebViewResolver$Companion' || true
+          javap -classpath lib.jar com.lagradost.cloudstream3.network.WebViewResolver || true
+          javap -classpath lib.jar com.lagradost.cloudstream3.MainActivityKt || true
