@@ -21,14 +21,15 @@ object Sniff {
   var AUTO = $auto;
   var sent = {};
   function abs(u){ try { return new URL(u, location.href).href; } catch(e) { return null; } }
-  function report(u, why, kind, subs){
+  function report(u, why, kind, subs, body, finalUrl){
     try {
       if (!u || typeof u !== 'string') return;
       if (u.indexOf('blob:') === 0 || u.indexOf('data:') === 0) return;
       u = abs(u); if (!u) return;
-      var key = u + (subs && subs.length ? '#s' : '');
+      var key = u + (subs && subs.length ? '#s' : '') + (body ? '#b' : '');
       if (sent[key]) return; sent[key] = 1;
-      DbxSniff.postMessage(JSON.stringify({url: u, page: location.href, why: why, kind: kind || '', subs: subs || []}));
+      DbxSniff.postMessage(JSON.stringify({url: u, page: location.href, why: why, kind: kind || '', subs: subs || [],
+        body: body || '', finalUrl: finalUrl ? abs(finalUrl) : ''}));
     } catch(e) {}
   }
   // Reklam (preroll/VAST) videolarını ayıkla
@@ -54,9 +55,11 @@ object Sniff {
     var x = this;
     x.addEventListener('load', function(){
       try {
-        var t = (x.responseType === '' || x.responseType === 'text') ? (x.responseText || '').slice(0, 64) : null;
+        var full = (x.responseType === '' || x.responseType === 'text') ? (x.responseText || '') : null;
+        var t = full ? full.slice(0, 64) : null;
         var ct = x.getResponseHeader('content-type') || '';
-        if (isManifest(ct, t)) report(x.responseURL || x.__dbxUrl, 'xhr', (ct.indexOf('dash') >= 0 || (t && t.indexOf('<MPD') >= 0)) ? 'dash' : 'hls');
+        if (isManifest(ct, t)) report(x.__dbxUrl || x.responseURL, 'xhr', (ct.indexOf('dash') >= 0 || (t && t.indexOf('<MPD') >= 0)) ? 'dash' : 'hls',
+          null, (full && full.length < 3000000) ? full : '', x.responseURL);
       } catch(e) {}
     });
     return send.apply(this, arguments);
@@ -70,8 +73,10 @@ object Sniff {
         p.then(function(r){
           try {
             var ct = r.headers.get('content-type');
-            if (isManifest(ct, null)) report(r.url, 'fetch', (ct || '').indexOf('dash') >= 0 ? 'dash' : 'hls');
-            else if (!ct || ct.indexOf('text') >= 0) r.clone().text().then(function(t){ if (isManifest('', t.slice(0, 64))) report(r.url, 'fetch', t.indexOf('<MPD') >= 0 ? 'dash' : 'hls'); }).catch(function(){});
+            if (isManifest(ct, null) || !ct || ct.indexOf('text') >= 0 || ct.indexOf('octet') >= 0)
+              r.clone().text().then(function(t){
+                if (isManifest(ct, t.slice(0, 64))) report(r.url, 'fetch', (t.indexOf('<MPD') >= 0 || (ct || '').indexOf('dash') >= 0) ? 'dash' : 'hls', null, t.length < 3000000 ? t : '', r.url);
+              }).catch(function(){});
           } catch(e) {}
         }).catch(function(){});
       } catch(e) {}
@@ -125,6 +130,12 @@ object Sniff {
     /** Yakalanan video: [kind] "hls" / "dash" / "" (bilinmiyor), [subs] (ad, adres). */
     data class Hit(val url: String, val page: String, val kind: String, val subs: List<Pair<String, String>>)
 
+    /** Tek kullanımlık liste adresleri: tarayıcının aldığı içerik saklanır, oynatıcı onu kullanır. */
+    private fun cacheBody(o: JSONObject) {
+        val body = o.optString("body")
+        if (body.isNotBlank()) ManifestCache.put(o.optString("url"), o.optString("finalUrl").ifBlank { null }, body)
+    }
+
     fun install(web: WebView, auto: Boolean, onFound: (Hit) -> Unit): Boolean {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) ||
             !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return false
@@ -132,6 +143,7 @@ object Sniff {
             WebViewCompat.addWebMessageListener(web, "DbxSniff", setOf("*")) { _, message, _, _, _ ->
                 val o = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
                 val url = o.optString("url")
+                cacheBody(o)
                 if (url.startsWith("http") && !AdBlock.isAd(url) && !url.contains("googlevideo", true)) {
                     AppLog.i("Video yakalandı (${o.optString("why")}${o.optString("kind").let { k -> if (k.isBlank()) "" else ", $k" }}): $url")
                     val subs = o.optJSONArray("subs")?.let { a ->

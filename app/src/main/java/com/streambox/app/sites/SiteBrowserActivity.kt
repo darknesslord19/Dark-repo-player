@@ -191,7 +191,7 @@ class SiteBrowserActivity : AppCompatActivity() {
             .put("poster", poster ?: "").put("url", pageUrl).toString()
         val chosen = videos.getOrNull(index)
         // Yayın listeleri (HLS/DASH) önce: reklam MP4'leri sona
-        val ordered = videos.sortedByDescending { it.isStream }
+        val ordered = videos.sortedWith(compareByDescending<SniffedVideo> { it == chosen }.thenByDescending { ManifestCache.has(it.url) }.thenByDescending { it.isStream })
         val items = ordered.map { v ->
             PlayItem(title, v.url, v.headers,
                 kind = when { v.label.startsWith("HLS") -> PlayItem.Kind.HLS; v.label.startsWith("DASH") -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },

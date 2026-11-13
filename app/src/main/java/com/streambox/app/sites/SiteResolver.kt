@@ -133,7 +133,7 @@ object SiteResolver {
     }
 
     private fun cancel0() {
-        finishJob?.let { main.removeCallbacks(it) }; finishJob = null; streamScheduled = false
+        finishJob?.let { main.removeCallbacks(it) }; finishJob = null; streamScheduled = false; waitedForBody = 0
         web?.let { it.stopLoading(); it.destroy() }
         web = null
         active = null
@@ -173,8 +173,20 @@ object SiteResolver {
         }
     }
 
+    private var waitedForBody = 0
+
     private fun start(context: Context, site: Site, item: SiteItem) {
-        val list = found.toList().sortedByDescending { it.isStream }
+        // Tarayıcı listeyi henüz indirmediyse (tek kullanımlık adreslerde gerekli) biraz daha bekle
+        if (found.any { it.isStream } && found.none { ManifestCache.has(it.url) } && waitedForBody < 3 && web != null) {
+            waitedForBody++
+            val r = Runnable { start(context, site, item) }
+            finishJob = r
+            main.postDelayed(r, 1000)
+            return
+        }
+        waitedForBody = 0
+        // Listesi tarayıcıda alınmış olanlar önce, sonra diğer yayınlar, en son düz dosyalar
+        val list = found.toList().sortedWith(compareByDescending<SniffedVideo> { ManifestCache.has(it.url) }.thenByDescending { it.isStream })
         cancel0()
         if (list.isEmpty()) return
         val meta = JSONObject().put("kind", "site").put("title", item.title).put("subtitle", site.name)

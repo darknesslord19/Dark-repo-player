@@ -273,7 +273,8 @@ class PlayerActivity : ComponentActivity() {
         val ua = it.headers.entries.firstOrNull { e -> e.key.equals("User-Agent", true) }?.value
             ?: if (it.live) com.streambox.app.Settings.iptvUserAgents.let { l -> l[uaAttempt.coerceIn(0, l.size - 1)] } else Net.USER_AGENT
         val http = OkHttpDataSource.Factory(Net.client).setUserAgent(ua).setDefaultRequestProperties(headers)
-        val factory = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http))
+        // Sitelerden yakalanan tek kullanımlık yayın listeleri tarayıcının indirdiği kopyadan okunur
+        val factory = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, com.streambox.app.sites.CachedManifestDataSource.Factory(http)))
 
         val lower = it.url.substringBefore('?').lowercase()
         val mime = when (it.kind) {
@@ -283,7 +284,9 @@ class PlayerActivity : ComponentActivity() {
             PlayItem.Kind.AUTO -> when {
                 lower.endsWith(".m3u8") || lower.endsWith(".m3u") || it.url.contains("m3u8", true) -> MimeTypes.APPLICATION_M3U8
                 lower.endsWith(".mpd") -> MimeTypes.APPLICATION_MPD
-                else -> null
+                else -> com.streambox.app.sites.ManifestCache.get(it.url)?.let { b ->
+                    if (String(b, 0, minOf(b.size, 16)).startsWith("#EXTM3U")) MimeTypes.APPLICATION_M3U8 else MimeTypes.APPLICATION_MPD
+                }
             }
         }
         lastMime = mime
