@@ -33,6 +33,10 @@ data class CsDetails(
     val tags: List<String>,
     val playData: String?,           // film / canlı yayın
     val episodes: List<CsEpisode>,   // dizi / anime
+    val duration: Int? = null,
+    val actors: List<Pair<String, String?>> = emptyList(),
+    val recommendations: List<CsCard> = emptyList(),
+    val typeLabel: String? = null,
 )
 data class CsLink(val name: String, val url: String, val referer: String, val quality: Int, val headers: Map<String, String>, val isHls: Boolean, val isDash: Boolean)
 data class CsSub(val lang: String, val url: String)
@@ -109,6 +113,16 @@ object CsApi {
             playData = play,
             episodes = eps.map {
                 CsEpisode(it.data, it.name ?: "Bölüm ${it.episode ?: "?"}", it.season, it.episode, it.posterUrl)
+            },
+            duration = runCatching { r.duration }.getOrNull()?.takeIf { it > 0 },
+            actors = runCatching { r.actors?.map { it.actor.name to it.actor.image } }.getOrNull().orEmpty(),
+            recommendations = runCatching { r.recommendations?.map { card(api, it) } }.getOrNull().orEmpty(),
+            typeLabel = when (r) {
+                is LiveStreamLoadResponse -> "Canlı"
+                is MovieLoadResponse -> "Film"
+                is AnimeLoadResponse -> "Anime"
+                is TvSeriesLoadResponse -> "Dizi"
+                else -> null
             },
         )
     }

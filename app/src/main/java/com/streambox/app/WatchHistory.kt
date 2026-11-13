@@ -77,6 +77,10 @@ object WatchHistory {
         }
     }
 
+    fun entry(key: String): HistoryEntry? = entries.firstOrNull { it.key == key }
+    /** Bir içeriğin en son izlenen bölümü/kaydı (anahtar öneki ile). */
+    fun latest(prefix: String): HistoryEntry? = entries.firstOrNull { it.key.startsWith(prefix) }
+
     fun remove(e: HistoryEntry) { entries.remove(e); save() }
     fun clear() { entries.clear(); save() }
 

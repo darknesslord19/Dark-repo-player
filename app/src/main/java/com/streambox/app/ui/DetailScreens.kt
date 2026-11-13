@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -304,44 +305,71 @@ fun TmdbDetailScreen(item: TmdbItem) {
         status = "${options.size} yayın · $total eklenti tarandı" + if (failed > 0) " · $failed sonuç vermedi" else ""
     }
 
+    val share = rememberShare()
+    val last = com.streambox.app.WatchHistory.latest("tmdb|${item.type}|${item.id}|")
+    fun playEpisode(s: Int, e: Int) { dialogTitle = "${item.title} S${s}B${e}"; request = null; request = Pair(s, e) }
+    fun playMovie() { dialogTitle = item.title; request = null; request = Pair(null, null) }
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
+        val d = details
         item {
-            val d = details
-            val meta = listOfNotNull(
-                item.year, if (item.type == "tv") "Dizi" else "Film",
-                item.rating?.let { "★ %.1f".format(it) }, d?.runtime?.let { "$it dk" },
-                d?.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
-            ).joinToString(" · ")
-            Header(item.title, item.poster, item.backdrop, meta, d?.item?.overview?.ifBlank { null } ?: item.overview)
+            DetailHero(
+                title = item.title, tagline = d?.tagline, poster = item.poster, backdrop = item.backdrop, headers = emptyMap(),
+                source = "Nuvio",
+                facts = listOfNotNull(item.year, if (item.type == "tv") "Dizi" else "Film", fmtRuntime(d?.runtime),
+                    d?.seasons?.size?.takeIf { item.type == "tv" && it > 0 }?.let { "$it sezon" }),
+                rating = item.rating, genres = d?.genres.orEmpty(),
+            )
         }
         item {
-            Row(Modifier.padding(16.dp, 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (item.type == "movie") {
-                    Button(onClick = { dialogTitle = item.title; request = null; request = Pair(null, null) }) {
-                        Icon(Icons.Default.PlayArrow, null); Text("Yayınları bul", Modifier.padding(start = 6.dp))
-                    }
-                }
-                OutlinedButton(onClick = { Nav.search(item.title) }) {
-                    Icon(Icons.Default.Search, null); Text("CloudStream'de ara", Modifier.padding(start = 6.dp))
-                }
+            // Oynat / Devam et
+            val parts = last?.key?.split("|")
+            val lastS = parts?.getOrNull(3)?.toIntOrNull()?.takeIf { it > 0 }
+            val lastE = parts?.getOrNull(4)?.toIntOrNull()?.takeIf { it > 0 }
+            val firstEp = episodes?.firstOrNull()
+            val label = when {
+                item.type == "movie" -> if (last != null) "Devam et" else "Oynat"
+                lastS != null && lastE != null -> "Devam et · S$lastS B$lastE"
+                firstEp != null -> "$season. Sezon ${firstEp.number}. Bölüm"
+                else -> "Bölümler yükleniyor"
             }
+            val onPlay: (() -> Unit)? = when {
+                item.type == "movie" -> ({ playMovie() })
+                lastS != null && lastE != null -> ({ playEpisode(lastS, lastE) })
+                firstEp != null -> ({ playEpisode(season, firstEp.number) })
+                else -> null
+            }
+            val actions = buildList<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>> {
+                if (last != null && onPlay != null) add(Triple(androidx.compose.material.icons.Icons.Default.Replay, "Baştan başla") {
+                    com.streambox.app.WatchHistory.remove(last); onPlay()
+                })
+                add(Triple(Icons.Default.Search, "Kaynaklarda ara") { Nav.search(item.title) })
+                add(Triple(androidx.compose.material.icons.Icons.Default.Share, "Paylaş") {
+                    share("${item.title}${item.year?.let { " ($it)" } ?: ""} — https://www.themoviedb.org/${item.type}/${item.id}")
+                })
+            }
+            PlayActions(label, last?.progress?.takeIf { it > 0f }, last?.let { remainingText(it) }, onPlay ?: { }, actions)
         }
+        item { Synopsis(d?.item?.overview?.ifBlank { null } ?: item.overview) }
         if (item.type == "tv") {
-            val seasons = details?.seasons.orEmpty()
-            if (seasons.isNotEmpty()) item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(seasons) { s -> FilterChip(selected = s.number == season, onClick = { season = s.number }, label = { Text(s.name) }) }
-                }
-            }
+            val seasons = d?.seasons.orEmpty()
             val eps = episodes
-            if (details == null || eps == null) item { Loading() }
+            item {
+                SectionLabel("Bölümler", trailing = eps?.let { "${it.size} bölüm" })
+                SeasonTabs(seasons.map { it.number to it.name }, season) { season = it }
+                Spacer(Modifier.height(8.dp))
+            }
+            if (d == null || eps == null) item { Loading() }
             else items(eps) { ep ->
-                EpisodeRow("${ep.number}. ${ep.name}", ep.overview, ep.still) {
-                    dialogTitle = "${item.title} S${season}B${ep.number}"
-                    request = null
-                    request = Pair(season, ep.number)
+                EpisodeCard(ep.number, ep.name, ep.overview, ep.still, emptyMap(), ep.runtime,
+                    com.streambox.app.WatchHistory.entry("tmdb|tv|${item.id}|$season|${ep.number}")?.progress?.takeIf { it > 0f }) {
+                    playEpisode(season, ep.number)
                 }
             }
+        }
+        if (d != null) {
+            item { CastRow(d.cast.map { Triple(it.name, it.role, it.image) }) }
+            item { SimilarRow(d.recommendations.map { it.toCard() }) }
         }
     }
 
@@ -405,35 +433,72 @@ fun CsDetailScreen(card: CsCard) {
         busy = false
     }
 
+    val share = rememberShare()
+    val prefix = "cs|${card.api.name}|${card.url}|"
+    val last = com.streambox.app.WatchHistory.latest(prefix)
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         val d = details
+        val seasons = d?.episodes?.mapNotNull { it.season }?.distinct()?.sorted().orEmpty()
+        val eps: List<CsEpisode> = when {
+            d == null -> emptyList()
+            seasons.size > 1 -> d.episodes.filter { it.season == season }
+            else -> d.episodes
+        }
+        item {
+            DetailHero(
+                title = d?.title ?: card.name, tagline = null,
+                poster = d?.poster ?: card.poster, backdrop = d?.backdrop,
+                headers = (d?.headers ?: emptyMap()) + card.posterHeaders,
+                source = card.api.name,
+                facts = listOfNotNull(d?.year?.toString(), d?.typeLabel, fmtRuntime(d?.duration),
+                    d?.episodes?.size?.takeIf { it > 0 }?.let { "$it bölüm" }),
+                rating = null, genres = d?.tags.orEmpty(),
+            )
+        }
         when {
             failed != null -> item { Message("Açılamadı: $failed") }
             d == null -> item { Loading() }
             else -> {
                 item {
-                    val meta = listOfNotNull(card.api.name, d.year?.toString(), d.tags.take(4).joinToString(", ").ifBlank { null }).joinToString(" · ")
-                    Header(d.title, d.poster ?: card.poster, d.backdrop, meta, d.plot, d.headers + card.posterHeaders)
+                    val title = d.title
+                    val lastData = last?.key?.removePrefix(prefix)
+                    val lastEp = lastData?.let { ld -> d.episodes.firstOrNull { it.data == ld } }
+                    val firstEp = eps.firstOrNull() ?: d.episodes.firstOrNull()
+                    val playData = d.playData
+                    val (label, onPlay) = when {
+                        playData != null -> (if (last != null) "Devam et" else "Oynat") to { target = null; target = title to playData }
+                        lastEp != null -> "Devam et · ${listOfNotNull(lastEp.season?.let { "S$it" }, lastEp.episode?.let { "B$it" }).joinToString(" ").ifBlank { lastEp.title }}" to
+                            { target = null; target = "$title · ${lastEp.title}" to lastEp.data }
+                        firstEp != null -> "Oynat · ${listOfNotNull(firstEp.season?.let { "$it. Sezon" }, firstEp.episode?.let { "$it. Bölüm" }).joinToString(" ").ifBlank { firstEp.title }}" to
+                            { target = null; target = "$title · ${firstEp.title}" to firstEp.data }
+                        else -> "Oynatılabilir içerik yok" to null
+                    }
+                    val actions = buildList<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>> {
+                        if (last != null && onPlay != null) add(Triple(androidx.compose.material.icons.Icons.Default.Replay, "Baştan başla") {
+                            com.streambox.app.WatchHistory.remove(last); onPlay()
+                        })
+                        add(Triple(Icons.Default.Search, "Diğer kaynaklar") { Nav.search(title) })
+                        add(Triple(androidx.compose.material.icons.Icons.Default.Share, "Paylaş") { share("$title — ${card.url}") })
+                    }
+                    PlayActions(label, last?.progress?.takeIf { it > 0f }, last?.let { remainingText(it) }, onPlay, actions)
                 }
-                val playData = d.playData
-                if (playData != null) item {
-                    Button(onClick = { target = null; target = d.title to playData }, modifier = Modifier.padding(16.dp, 10.dp)) {
-                        Icon(Icons.Default.PlayArrow, null); Text("Oynat", Modifier.padding(start = 6.dp))
+                item { Synopsis(d.plot) }
+                if (d.episodes.isNotEmpty()) {
+                    item {
+                        SectionLabel("Bölümler", trailing = "${eps.size} bölüm")
+                        SeasonTabs(seasons.map { it to "$it. Sezon" }, season) { season = it }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    items(eps) { ep ->
+                        EpisodeCard(ep.episode, ep.title, null, ep.poster, d.headers + card.posterHeaders, null,
+                            com.streambox.app.WatchHistory.entry(prefix + ep.data)?.progress?.takeIf { it > 0f }) {
+                            target = null; target = "${d.title} · ${ep.title}" to ep.data
+                        }
                     }
                 }
-                val seasons = d.episodes.mapNotNull { it.season }.distinct().sorted()
-                if (seasons.size > 1) item {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(seasons) { s -> FilterChip(selected = s == season, onClick = { season = s }, label = { Text("$s. Sezon") }) }
-                    }
-                }
-                val eps: List<CsEpisode> = if (seasons.size > 1) d.episodes.filter { it.season == season } else d.episodes
-                items(eps) { ep ->
-                    val label = listOfNotNull(ep.episode?.let { "$it." }, ep.title).joinToString(" ")
-                    EpisodeRow(label, ep.season?.let { "$it. Sezon" }, ep.poster) {
-                        target = null; target = "${d.title} · ${ep.title}" to ep.data
-                    }
-                }
+                item { CastRow(d.actors.map { Triple(it.first, null, it.second) }) }
+                item { SimilarRow(d.recommendations.map { it.toCard() }) }
             }
         }
     }
@@ -441,6 +506,13 @@ fun CsDetailScreen(card: CsCard) {
     target?.let { (title, _) ->
         StreamsDialog(title, options, if (busy) "Bağlantılar aranıyor… (${options.size})" else "${options.size} bağlantı", busy) { target = null }
     }
+}
+
+/** "23 dk kaldı" metni. */
+fun remainingText(e: com.streambox.app.HistoryEntry): String? {
+    if (e.duration <= 0) return null
+    val left = ((e.duration - e.position) / 60_000).coerceAtLeast(1)
+    return if (left >= 60) "${left / 60} sa ${left % 60} dk kaldı" else "$left dk kaldı"
 }
 
 /** Ana sayfada seçili Nuvio reposu (yoksa null: tüm etkin eklentiler). */

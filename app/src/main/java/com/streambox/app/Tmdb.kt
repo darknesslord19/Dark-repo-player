@@ -17,8 +17,12 @@ data class TmdbItem(
 )
 
 data class TmdbSeason(val number: Int, val name: String, val episodeCount: Int)
-data class TmdbEpisode(val number: Int, val name: String, val overview: String, val still: String?)
-data class TmdbDetails(val item: TmdbItem, val genres: List<String>, val seasons: List<TmdbSeason>, val runtime: Int?)
+data class TmdbEpisode(val number: Int, val name: String, val overview: String, val still: String?, val runtime: Int? = null)
+data class TmdbCast(val name: String, val role: String?, val image: String?)
+data class TmdbDetails(
+    val item: TmdbItem, val genres: List<String>, val seasons: List<TmdbSeason>, val runtime: Int?,
+    val tagline: String? = null, val cast: List<TmdbCast> = emptyList(), val recommendations: List<TmdbItem> = emptyList(),
+)
 
 object Tmdb {
     private const val BASE = "https://api.themoviedb.org/3"
@@ -99,7 +103,7 @@ object Tmdb {
     suspend fun search(query: String): List<TmdbItem> = list("/search/multi", null, mapOf("query" to query))
 
     suspend fun details(type: String, id: Int): TmdbDetails {
-        val o = get("/$type/$id")
+        val o = get("/$type/$id", mapOf("append_to_response" to "credits,recommendations"))
         val item = parse(o, type)!!
         val genres = o.optJSONArray("genres")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).optString("name") } } ?: emptyList()
         val seasons = o.optJSONArray("seasons")?.let { a ->
@@ -108,13 +112,23 @@ object Tmdb {
                 .map { TmdbSeason(it.optInt("season_number"), it.optString("name"), it.optInt("episode_count")) }
         } ?: emptyList()
         val runtime = o.optInt("runtime").takeIf { it > 0 }
-        return TmdbDetails(item, genres, seasons, runtime)
+            ?: o.optJSONArray("episode_run_time")?.optInt(0)?.takeIf { it > 0 }
+        val cast = o.optJSONObject("credits")?.optJSONArray("cast")?.let { a ->
+            (0 until minOf(a.length(), 20)).map { a.getJSONObject(it) }.map {
+                TmdbCast(it.optString("name"), it.optString("character").ifBlank { null }, img(it.optString("profile_path"), "w185"))
+            }
+        } ?: emptyList()
+        val recs = o.optJSONObject("recommendations")?.optJSONArray("results")?.let { a ->
+            (0 until a.length()).mapNotNull { parse(a.getJSONObject(it), type) }
+        } ?: emptyList()
+        return TmdbDetails(item, genres, seasons, runtime, o.optString("tagline").ifBlank { null }, cast, recs)
     }
 
     suspend fun season(id: Int, number: Int): List<TmdbEpisode> {
         val arr = get("/tv/$id/season/$number").optJSONArray("episodes") ?: return emptyList()
         return (0 until arr.length()).map { arr.getJSONObject(it) }.map {
-            TmdbEpisode(it.optInt("episode_number"), it.optString("name"), it.optString("overview"), img(it.optString("still_path"), "w300"))
+            TmdbEpisode(it.optInt("episode_number"), it.optString("name"), it.optString("overview"), img(it.optString("still_path"), "w300"),
+                it.optInt("runtime").takeIf { r -> r > 0 })
         }
     }
 }
