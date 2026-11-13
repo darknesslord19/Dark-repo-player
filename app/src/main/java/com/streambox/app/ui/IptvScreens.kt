@@ -162,11 +162,11 @@ private fun AccountCard(p: Playlist, editing: Boolean, onOpen: () -> Unit, onRen
             if (editing) {
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    MiniAction(Icons.Default.Edit, "Ad", onRename)
+                    MiniAction(Icons.Default.Edit, "Ad", onClick = onRename)
                     MiniAction(if (p.onHome) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                         if (p.onHome) "Gizle" else "Göster") { IptvStore.setOnHome(p, !p.onHome) }
                     Spacer(Modifier.weight(1f))
-                    MiniAction(Icons.Default.Delete, "Sil", onDelete, Color(0xFFFF6B6B))
+                    MiniAction(Icons.Default.Delete, "Sil", Color(0xFFFF6B6B), onDelete)
                 }
             }
         }
@@ -174,7 +174,7 @@ private fun AccountCard(p: Playlist, editing: Boolean, onOpen: () -> Unit, onRen
 }
 
 @Composable
-private fun MiniAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.White) {
+private fun MiniAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color = Color.White, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Row(
