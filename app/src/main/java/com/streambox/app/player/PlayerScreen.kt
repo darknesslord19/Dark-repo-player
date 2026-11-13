@@ -119,20 +119,23 @@ private fun CtrlButton(
 
 /** Alt çubuktaki yazılı düğme (ikon + etiket). */
 @Composable
-private fun PillButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun PillButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Row(
-        Modifier
+        modifier
+            .height(44.dp)
             .clip(RoundedCornerShape(50))
             .background(if (focused) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f))
             .then(if (focused) Modifier.border(2.dp, Color.White, RoundedCornerShape(50)) else Modifier)
             .clickable(interactionSource = src, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
-        Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+        Text(label, color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 7.dp))
     }
 }
 
@@ -274,19 +277,19 @@ fun PlayerScreen(act: PlayerActivity) {
 
                 // Orta düğmeler
                 Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(36.dp)) {
-                    if (act.items.size > 1) CtrlButton(Icons.Default.SkipPrevious, "Önceki", size = 48.dp) { act.playIndex(ui.index - 1) }
-                    if (!item.live) CtrlButton(Icons.Default.Replay10, "10 sn geri", size = 56.dp, iconSize = 32.dp) { act.seekBy(-10_000) }
+                    horizontalArrangement = Arrangement.spacedBy(46.dp)) {
+                    if (act.items.size > 1) CtrlButton(Icons.Default.SkipPrevious, "Önceki", size = 54.dp, iconSize = 32.dp) { act.playIndex(ui.index - 1) }
+                    if (!item.live) CtrlButton(Icons.Default.Replay10, "10 sn geri", size = 70.dp, iconSize = 46.dp) { act.seekBy(-10_000) }
                     if (ui.error != null) {
-                        CtrlButton(Icons.Default.Refresh, "Tekrar dene", size = 76.dp, iconSize = 42.dp, filled = true,
+                        CtrlButton(Icons.Default.Refresh, "Tekrar dene", size = 84.dp, iconSize = 46.dp, filled = true,
                             modifier = Modifier.focusRequester(playFocus)) { act.retry() }
                     } else if (!ui.buffering || ui.playing) {
                         CtrlButton(if (ui.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            if (ui.playing) "Duraklat" else "Oynat", size = 76.dp, iconSize = 44.dp, filled = true,
+                            if (ui.playing) "Duraklat" else "Oynat", size = 84.dp, iconSize = 50.dp, filled = true,
                             modifier = Modifier.focusRequester(playFocus)) { act.togglePlay() }
-                    } else Spacer(Modifier.size(76.dp).focusRequester(playFocus).focusable())
-                    if (!item.live) CtrlButton(Icons.Default.Forward10, "10 sn ileri", size = 56.dp, iconSize = 32.dp) { act.seekBy(10_000) }
-                    if (act.items.size > 1) CtrlButton(Icons.Default.SkipNext, "Sonraki", size = 48.dp) { act.playIndex(ui.index + 1) }
+                    } else Spacer(Modifier.size(84.dp).focusRequester(playFocus).focusable())
+                    if (!item.live) CtrlButton(Icons.Default.Forward10, "10 sn ileri", size = 70.dp, iconSize = 46.dp) { act.seekBy(10_000) }
+                    if (act.items.size > 1) CtrlButton(Icons.Default.SkipNext, "Sonraki", size = 54.dp, iconSize = 32.dp) { act.playIndex(ui.index + 1) }
                 }
 
                 ui.error?.let {
@@ -296,7 +299,7 @@ fun PlayerScreen(act: PlayerActivity) {
                 }
 
                 // Alt çubuk
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp)) {
                     if (!item.live && ui.duration > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(fmt(dragging?.toLong() ?: ui.position), color = Color.White, fontSize = 13.sp)
@@ -317,13 +320,14 @@ fun PlayerScreen(act: PlayerActivity) {
                             Text("CANLI YAYIN", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
                         }
                     }
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        PillButton(Icons.Default.LockOpen, "Kilitle") { ui.locked = true; act.showControls(); toast = "Ekran kilitlendi" }
-                        PillButton(Icons.Default.AspectRatio, "Ekran") { toast = act.cycleResize(); act.touch() }
-                        if (!item.live) PillButton(Icons.Default.Speed, "${ui.speed}x") { sheet = Sheet.SPEED }
-                        PillButton(Icons.Default.ClosedCaption, "Ses ve altyazı") { sheet = Sheet.TRACKS }
-                        if (act.items.size > 1) PillButton(Icons.Default.VideoLibrary, if (item.live) "Kanallar" else "Kaynaklar") { sheet = Sheet.SOURCES }
+                        val w = Modifier.weight(1f)
+                        PillButton(Icons.Default.LockOpen, "Kilitle", w) { ui.locked = true; act.showControls(); toast = "Ekran kilitlendi" }
+                        PillButton(Icons.Default.AspectRatio, "Ekran", w) { toast = act.cycleResize(); act.touch() }
+                        if (!item.live) PillButton(Icons.Default.Speed, if (ui.speed == 1f) "Hız" else "${ui.speed}x", w) { sheet = Sheet.SPEED }
+                        PillButton(Icons.Default.ClosedCaption, "Ses / Altyazı", w) { sheet = Sheet.TRACKS }
+                        if (act.items.size > 1) PillButton(Icons.Default.VideoLibrary, if (item.live) "Kanallar" else "Kaynaklar", w) { sheet = Sheet.SOURCES }
                     }
                 }
             }

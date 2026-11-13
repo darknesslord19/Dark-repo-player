@@ -264,6 +264,7 @@ fun CsDetailScreen(card: CsCard) {
             details = CsApi.load(card.api, card.url) ?: run { failed = "Kaynak boş yanıt verdi"; null }
             season = details?.episodes?.mapNotNull { it.season }?.minOrNull()
         } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             AppLog.e("${card.api.name} load hatası", t); failed = AppLog.describe(t)
         }
     }
@@ -290,6 +291,7 @@ fun CsDetailScreen(card: CsCard) {
                 },
                 onSub = { s -> synchronized(subs) { subs += PlaySub(s.lang, s.url) } })
         } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             AppLog.e("${card.api.name} loadLinks hatası", t)
         }
         // altyazılar sonradan gelmiş olabilir: hepsine ekle

@@ -17,6 +17,9 @@ object Settings {
         private set
     var language by mutableStateOf("tr-TR")
         private set
+    /** DNS over HTTPS sağlayıcısı (DnsProvider adı). */
+    var dns by mutableStateOf("CLOUDFLARE")
+        private set
     /** Ana sayfada seçili kaynak (kaynak adı ya da "__tmdb__"). */
     var homeSource by mutableStateOf("__tmdb__")
         private set
@@ -26,11 +29,19 @@ object Settings {
         tmdbKey = prefs.getString("tmdbKey", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_TMDB_KEY
         language = prefs.getString("language", "tr-TR") ?: "tr-TR"
         homeSource = prefs.getString("homeSource", "__tmdb__") ?: "__tmdb__"
+        dns = prefs.getString("dns", "CLOUDFLARE") ?: "CLOUDFLARE"
     }
 
     fun updateTmdbKey(v: String) {
         tmdbKey = v.trim().ifBlank { DEFAULT_TMDB_KEY }
         prefs.edit().putString("tmdbKey", tmdbKey).apply()
+    }
+
+    fun updateDns(v: String) {
+        dns = v
+        prefs.edit().putString("dns", v).apply()
+        Net.rebuild()
+        com.streambox.app.plugins.CsBridge.init(appContext)
     }
 
     fun updateHomeSource(v: String) {

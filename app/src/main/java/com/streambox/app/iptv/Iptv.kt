@@ -86,6 +86,10 @@ object M3u {
 
 object IptvStore {
     val playlists = mutableStateListOf<Playlist>()
+    /** Favori kanallar (adres). */
+    val favorites = mutableStateListOf<String>()
+    /** Son izlenen kanallar (adres), en yenisi başta. */
+    val recents = mutableStateListOf<String>()
     private lateinit var appContext: Context
     private fun dir() = File(appContext.filesDir, "iptv").apply { mkdirs() }
 
@@ -96,6 +100,31 @@ object IptvStore {
         for (i in 0 until arr.length()) arr.getJSONObject(i).let {
             playlists += Playlist(it.getString("id"), it.getString("name"), it.optString("url").ifBlank { null })
         }
+        val prefs = appContext.getSharedPreferences("iptv", 0)
+        favorites.clear(); favorites.addAll(JSONArray(prefs.getString("favorites", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } })
+        recents.clear(); recents.addAll(JSONArray(prefs.getString("recents", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } })
+    }
+
+    private fun saveLists() {
+        appContext.getSharedPreferences("iptv", 0).edit()
+            .putString("favorites", JSONArray(favorites.toList()).toString())
+            .putString("recents", JSONArray(recents.toList()).toString())
+            .apply()
+    }
+
+    /** Favoriye ekler ya da çıkarır; yeni durumu döndürür. */
+    fun toggleFavorite(url: String): Boolean {
+        val added = if (url in favorites) { favorites.remove(url); false } else { favorites.add(0, url); true }
+        saveLists()
+        return added
+    }
+
+    /** İzlenen kanalı "Devam et" listesinin başına koyar. */
+    fun markWatched(url: String) {
+        recents.remove(url)
+        recents.add(0, url)
+        while (recents.size > 60) recents.removeAt(recents.lastIndex)
+        saveLists()
     }
 
     private fun save() {

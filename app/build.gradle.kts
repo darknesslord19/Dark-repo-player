@@ -90,6 +90,7 @@ dependencies {
     implementation("org.mozilla:rhino:1.7.14")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
 
     // Oynatıcı
     val media3 = "1.8.0"

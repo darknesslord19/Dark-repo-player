@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.streambox.app.AppLog
 import com.streambox.app.BuildConfig
+import com.streambox.app.DnsProvider
 import com.streambox.app.Settings
 import com.streambox.app.restartApp
 
@@ -43,6 +44,22 @@ fun SettingsScreen() {
             Row(Modifier.padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { Settings.updateTmdbKey(key); Settings.updateLanguage(lang); Nav.homeCache.clear(); key = Settings.tmdbKey }) { Text("Kaydet") }
                 OutlinedButton(onClick = { key = Settings.DEFAULT_TMDB_KEY }) { Text("Varsayılan") }
+            }
+            SectionTitle("DNS (engelli siteler için)")
+            Text("Türkiye'de erişim engeli olan kaynaklar açılmıyorsa DNS over HTTPS kullan.", color = Muted, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp))
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(DnsProvider.entries.size) { i ->
+                    val d = DnsProvider.entries[i]
+                    androidx.compose.material3.FilterChip(
+                        selected = Settings.dns == d.name,
+                        onClick = { Settings.updateDns(d.name); Nav.homeCache.clear() },
+                        label = { Text(d.label) }
+                    )
+                }
             }
             SectionTitle("Uygulama")
             Text("StreamBox ${BuildConfig.VERSION_NAME}", color = Muted, modifier = Modifier.padding(horizontal = 16.dp))
