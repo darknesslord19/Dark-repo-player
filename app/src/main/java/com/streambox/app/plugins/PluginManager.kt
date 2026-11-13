@@ -50,6 +50,15 @@ object PluginManager {
     val installed = mutableStateListOf<InstalledPlugin>()
     val results = mutableStateMapOf<String, LoadResult>()
 
+    /** Yüklenmiş eklenti nesneleri (dosya yolu → nesne); ayar penceresi için. */
+    private val instances = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    /** Eklentinin kendi ayar penceresi varsa onu açan fonksiyon. */
+    fun settingsOf(context: Context, p: InstalledPlugin): ((Context) -> Unit)? =
+        (instances[File(dir(context), p.fileName).absolutePath] as? Plugin)?.openSettings
+
+    fun sizeOf(context: Context, p: InstalledPlugin): Long = File(dir(context), p.fileName).length()
+
     /** Bu oturumda yüklenmiş dosyalar (aynı dosya iki kez yüklenmesin). */
     private val loadedFiles = mutableSetOf<String>()
 
@@ -155,6 +164,7 @@ object PluginManager {
             val instance = loader.loadClass(className).getDeclaredConstructor().newInstance()
 
             setFilename(instance, file.absolutePath)
+            instances[file.absolutePath] = instance
 
             when (instance) {
                 is Plugin -> {

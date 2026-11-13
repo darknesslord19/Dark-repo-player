@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import com.streambox.app.ui.isWide
 import com.streambox.app.ui.SettingsPageScreen
+import com.streambox.app.ui.RepoPageScreen
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.displayCutout
@@ -58,7 +59,7 @@ private val tabs = listOf(
     NavTab(Route.Settings, "Ayarlar", Icons.Default.Settings),
 )
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.appcompat.app.AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -120,6 +121,7 @@ private fun Root() {
                 is Route.IptvList -> IptvListScreen(route.playlist)
                 is Route.Category -> CategoryScreen(route)
                 is Route.SettingsPage -> SettingsPageScreen(route.page)
+                is Route.RepoPage -> RepoPageScreen(route)
             }
         }
     }

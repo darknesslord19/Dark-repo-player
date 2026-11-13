@@ -17,6 +17,8 @@ sealed interface Route {
     data class TmdbDetail(val item: TmdbItem) : Route
     data class CsDetail(val card: CsCard) : Route
     data class IptvList(val playlist: Playlist) : Route
+    /** Eklenti deposu sayfası: kind = "cs" ya da "nuvio". */
+    data class RepoPage(val kind: String, val url: String) : Route
     /** Ayar alt sayfası: tmdb, dns, player, iptv, log, about. */
     data class SettingsPage(val page: String) : Route
     /** Bir rafın tamamı; [load] sayfa numarasıyla sonraki kartları getirir (null: sadece eldekiler). */

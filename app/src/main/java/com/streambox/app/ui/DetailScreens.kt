@@ -1,6 +1,12 @@
 package com.streambox.app.ui
 
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -125,32 +131,120 @@ private fun EpisodeRow(title: String, subtitle: String?, image: String?, onClick
     }
 }
 
-/** Yayın seçenekleri penceresi: sonuçlar geldikçe listeye eklenir. */
+/** Kalite rozeti metni ve rengi. */
+private fun qualityBadge(o: StreamOption): Pair<String, Color> {
+    val q = qualityScore(o.label + " " + (o.detail ?: ""))
+    return when {
+        q >= 2160 -> "4K" to Color(0xFFE2C48F)
+        q >= 1440 -> "2K" to Color(0xFFE2C48F)
+        q >= 1080 -> "1080p" to Color(0xFF4F8CFF)
+        q >= 720 -> "720p" to Color(0xFF34C759)
+        q > 0 -> "${q}p" to Color(0xFF8E939B)
+        else -> "AUTO" to Color(0xFF8E939B)
+    }
+}
+
+/** Yayın seçme paneli: kaynak ve kalite filtreleri, renkli kalite rozetleri; sonuçlar geldikçe eklenir. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun StreamsDialog(title: String, options: List<StreamOption>, status: String?, busy: Boolean, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    AlertDialog(
+    var source by remember { mutableStateOf<String?>(null) }
+    var quality by remember { mutableStateOf<String?>(null) }
+    val sources = options.groupingBy { it.source }.eachCount().toList().sortedByDescending { it.second }
+    val qualities = options.map { qualityBadge(it).first }.distinct()
+        .sortedByDescending { listOf("AUTO", "480p", "720p", "1080p", "2K", "4K").indexOf(it) }
+    val shown = options.filter { (source == null || it.source == source) && (quality == null || qualityBadge(it).first == quality) }
+
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Kapat") } },
-        title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Column {
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (status != null) Text(status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 6.dp))
-                if (!busy && options.isEmpty()) Text("Yayın bulunamadı.", color = Muted)
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    itemsIndexed(options) { i, o ->
-                        EpisodeRow(o.label, listOfNotNull(o.source, o.detail).joinToString(" · "), null) {
-                            val all = options.map { op ->
-                                op.item.copy(label = listOfNotNull(op.source, op.label, op.detail).distinct().joinToString(" · "))
-                            }
-                            PlayerActivity.start(context, all, i)
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color(0xFF14161B),
+        dragHandle = { Box(Modifier.padding(top = 10.dp).size(44.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3F49))) }
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            // Başlık
+            Row(Modifier.fillMaxWidth().padding(20.dp, 10.dp, 12.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Kaynaklar", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Box(Modifier.size(44.dp).clip(CircleShape).background(Color(0xFF23262E)).clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Kapat", tint = Color.White) }
+            }
+            // Durum
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Accent)
+                else Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF34C759), modifier = Modifier.size(18.dp))
+                Text(status ?: "", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(2.dp), color = Accent, trackColor = Color(0xFF23262E))
+
+            // Filtreler: kalite + kaynak
+            if (options.isNotEmpty()) {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { FilterPill("Tümü ${options.size}", source == null && quality == null) { source = null; quality = null } }
+                    items(qualities) { q -> FilterPill(q, quality == q) { quality = if (quality == q) null else q } }
+                    items(sources) { (src, n) -> FilterPill("$src $n", source == src) { source = if (source == src) null else src } }
+                }
+            }
+
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 560.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
+                if (shown.isEmpty()) item {
+                    Message(if (busy) "Kaynaklar aranıyor…" else "Yayın bulunamadı.")
+                }
+                itemsIndexed(shown) { i, o ->
+                    StreamRow(o) {
+                        val all = shown.map { op ->
+                            op.item.copy(label = listOfNotNull(op.source, op.label, op.detail).distinct().joinToString(" · "))
                         }
+                        PlayerActivity.start(context, all, i)
                     }
                 }
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val focused by src.collectIsFocusedAsState()
+    Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+        color = if (selected) Color.White else Color(0xFFC8CBD0),
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (selected) Accent else Color(0xFF1F232B))
+            .border(1.5.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(50))
+            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp))
+}
+
+/** Tek yayın satırı: solda kalite rozeti, ortada kaynak ve açıklama, sağda oynat. */
+@Composable
+private fun StreamRow(o: StreamOption, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val focused by src.collectIsFocusedAsState()
+    val (badge, color) = qualityBadge(o)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .background(if (focused) Color(0xFF22304D) else Color(0xFF1A1D24))
+            .border(1.5.dp, if (focused) Accent else Color.Transparent, RoundedCornerShape(16.dp))
+            .clickable(interactionSource = src, indication = LocalIndication.current, onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(width = 58.dp, height = 40.dp).clip(RoundedCornerShape(10.dp)).background(color.copy(alpha = 0.16f))
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            Text(badge, color = color, fontWeight = FontWeight.Black, fontSize = 13.sp)
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(o.source, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(o.label, color = Color(0xFFC8CBD0), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            o.detail?.let { Text(it, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        Box(Modifier.size(40.dp).clip(CircleShape).background(if (focused) Accent else Color(0xFF262A33)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.PlayArrow, "Oynat", tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+    }
 }
 
 // ------------------------------------------------------------ TMDB (Nuvio)

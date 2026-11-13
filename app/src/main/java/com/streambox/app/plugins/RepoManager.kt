@@ -36,6 +36,15 @@ data class RepoPlugin(
 object RepoManager {
     private const val PREFS = "repos"
     val repos = mutableStateListOf<Repo>()
+    /** Repo adresi → eklenti listesi (ekranlar arasında paylaşılır). */
+    val pluginCache = androidx.compose.runtime.mutableStateMapOf<String, List<RepoPlugin>>()
+
+    suspend fun pluginsOf(repo: Repo, refresh: Boolean = false): List<RepoPlugin> {
+        if (!refresh) pluginCache[repo.url]?.let { return it }
+        val list = fetchPlugins(repo)
+        onMain { pluginCache[repo.url] = list }
+        return list
+    }
 
     fun init(context: Context) {
         val raw = context.getSharedPreferences(PREFS, 0).getString("list", "[]") ?: "[]"
