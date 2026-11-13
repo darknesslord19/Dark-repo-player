@@ -69,9 +69,9 @@ object SiteManager {
             .putBoolean("blockPopups", blockPopups).putBoolean("autoVideo", autoVideo).apply()
     }
 
-    fun setBlockRedirects(v: Boolean) { blockRedirects = v; save() }
-    fun setBlockPopups(v: Boolean) { blockPopups = v; save() }
-    fun setAutoVideo(v: Boolean) { autoVideo = v; save() }
+    fun updateBlockRedirects(v: Boolean) { blockRedirects = v; save() }
+    fun updateBlockPopups(v: Boolean) { blockPopups = v; save() }
+    fun updateAutoVideo(v: Boolean) { autoVideo = v; save() }
 
     fun normalize(input: String): String {
         var s = input.trim()

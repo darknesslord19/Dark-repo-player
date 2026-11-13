@@ -398,9 +398,9 @@ fun SitesPage() {
             }
         }
         Block("Reklam engelleme", "Bilinen reklam ağları, bahis/yetişkin reklamları ve izleyiciler her zaman engellenir.") {
-            SwitchRow("Yönlendirmeleri engelle", "Tıklayınca başka siteye atan reklamları durdurur", sm.blockRedirects) { sm.setBlockRedirects(it) }
-            SwitchRow("Açılır pencereleri engelle", "Yeni sekme/pencere açan reklamlar", sm.blockPopups) { sm.setBlockPopups(it) }
-            SwitchRow("Videoyu otomatik yakala", "Sayfada video bulununca DarknesBox oynatıcısında açmayı önerir", sm.autoVideo) { sm.setAutoVideo(it) }
+            SwitchRow("Yönlendirmeleri engelle", "Tıklayınca başka siteye atan reklamları durdurur", sm.blockRedirects) { sm.updateBlockRedirects(it) }
+            SwitchRow("Açılır pencereleri engelle", "Yeni sekme/pencere açan reklamlar", sm.blockPopups) { sm.updateBlockPopups(it) }
+            SwitchRow("Videoyu otomatik yakala", "Sayfada video bulununca DarknesBox oynatıcısında açmayı önerir", sm.autoVideo) { sm.updateAutoVideo(it) }
         }
     }
     editing?.let { st ->
