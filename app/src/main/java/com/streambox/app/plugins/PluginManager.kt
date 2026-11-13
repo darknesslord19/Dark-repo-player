@@ -137,6 +137,11 @@ object PluginManager {
 
     private fun load(context: Context, p: InstalledPlugin) {
         val file = File(dir(context), p.fileName)
+        // Yedekten geri yüklendiyse dosya yoktur: kaynağından yeniden indir
+        if (!file.exists() && p.sourceUrl != null) runCatching {
+            AppLog.i("Yeniden indiriliyor: ${p.name}")
+            kotlinx.coroutines.runBlocking { Net.download(p.sourceUrl, file) }
+        }.onFailure { AppLog.e("${p.name} indirilemedi", it) }
         val result = if (!file.exists()) LoadResult(false, "Dosya yok") else loadFile(context, file)
         onMain { results[p.internalName] = result }
         if (result.ok) AppLog.i("✔ ${p.name}: ${result.message}") else AppLog.e("✘ ${p.name}: ${result.message}")

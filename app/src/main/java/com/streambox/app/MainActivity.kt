@@ -99,6 +99,11 @@ private fun isTv(): Boolean {
 
 @Composable
 private fun Root() {
+    // Profilli giriş açıksa önce "Kim izliyor?"
+    if (!Profiles.chosen) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Bg)) { com.streambox.app.ui.ProfilePickerScreen() }
+        return
+    }
     val route = Nav.current
     BackHandler(enabled = Nav.stack.size > 1) { Nav.back() }
     // Alt sekmelerden birindeyken geri tuşu ana sayfaya döner

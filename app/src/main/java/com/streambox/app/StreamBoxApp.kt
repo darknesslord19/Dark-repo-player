@@ -37,7 +37,9 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         instance = this
         Settings.init(this)
         AppIcon.init(this)
+        Profiles.init(this)
         WatchHistory.init(this)
+        registerActivityLifecycleCallbacks(ActivityTracker)
         RepoManager.init(this)
         PluginManager.init(this)
         NuvioRepoManager.init(this)
@@ -45,5 +47,18 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         com.streambox.app.catalog.CatalogManager.init(this)
         runCatching { CsBridge.init(this) }.onFailure { AppLog.e("CloudStream başlatılamadı", it) }
         scope.launch { PluginManager.loadAll(this@StreamBoxApp) }
+        com.streambox.app.remote.RemoteServer.startIfEnabled(this)
     }
+}
+
+/** Öndeki etkinliği izler (telefon kumandası tuşları buraya gönderilir). */
+object ActivityTracker : android.app.Application.ActivityLifecycleCallbacks {
+    @Volatile var top: java.lang.ref.WeakReference<android.app.Activity>? = null
+    override fun onActivityResumed(a: android.app.Activity) { top = java.lang.ref.WeakReference(a) }
+    override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+    override fun onActivityStarted(a: android.app.Activity) {}
+    override fun onActivityPaused(a: android.app.Activity) {}
+    override fun onActivityStopped(a: android.app.Activity) {}
+    override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+    override fun onActivityDestroyed(a: android.app.Activity) { if (top?.get() === a) top = null }
 }

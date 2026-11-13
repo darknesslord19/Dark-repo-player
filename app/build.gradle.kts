@@ -110,6 +110,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Telefon kumandası için QR kod
+    implementation("com.google.zxing:core:3.5.3")
 }
 
 // Nuvio eklentilerinin istediği crypto-js kütüphanesini derlemeden önce indir

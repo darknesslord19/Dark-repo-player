@@ -33,6 +33,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -87,7 +90,7 @@ private val SLine = Color(0xFF22262E)
 
 /** Ayar satırı: renkli ikon kutusu, başlık, açıklama, sağda ok. Kumandayla seçilebilir. */
 @Composable
-private fun SettingRow(icon: ImageVector, tint: Color, title: String, subtitle: String?, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+internal fun SettingRow(icon: ImageVector, tint: Color, title: String, subtitle: String?, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Row(
@@ -110,7 +113,7 @@ private fun SettingRow(icon: ImageVector, tint: Color, title: String, subtitle: 
 
 /** Başlıklı, köşeleri yuvarlak ayar grubu. */
 @Composable
-private fun SettingGroup(title: String, content: @Composable () -> Unit) {
+internal fun SettingGroup(title: String, content: @Composable () -> Unit) {
     Text(title.uppercase(), color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
         modifier = Modifier.padding(24.dp, 22.dp, 24.dp, 8.dp))
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(SCard)) { content() }
@@ -118,11 +121,11 @@ private fun SettingGroup(title: String, content: @Composable () -> Unit) {
 
 /** Satırlar arasındaki ince çizgi. */
 @Composable
-private fun GroupDivider() = Box(Modifier.fillMaxWidth().padding(start = 70.dp).height(1.dp).background(SLine))
+internal fun GroupDivider() = Box(Modifier.fillMaxWidth().padding(start = 70.dp).height(1.dp).background(SLine))
 
 /** Alt sayfa iskeleti: geri düğmesi + başlık + içerik. */
 @Composable
-private fun SubPage(title: String, subtitle: String? = null, content: @Composable () -> Unit) {
+internal fun SubPage(title: String, subtitle: String? = null, content: @Composable () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
             Row(Modifier.fillMaxWidth().padding(8.dp, 10.dp, 16.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -141,7 +144,7 @@ private fun SubPage(title: String, subtitle: String? = null, content: @Composabl
 
 /** Kart içinde başlıklı blok. */
 @Composable
-private fun Block(title: String, hint: String? = null, content: @Composable () -> Unit) {
+internal fun Block(title: String, hint: String? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp, 8.dp).clip(RoundedCornerShape(20.dp)).background(SCard).padding(18.dp)) {
         Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         hint?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -152,7 +155,7 @@ private fun Block(title: String, hint: String? = null, content: @Composable () -
 
 /** Seçenek çipi. */
 @Composable
-private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color(0xFFC8CBD0),
@@ -164,7 +167,7 @@ private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
 
 /** Radyo düğmeli seçenek satırı. */
 @Composable
-private fun RadioRow(title: String, subtitle: String?, selected: Boolean, onClick: () -> Unit) {
+internal fun RadioRow(title: String, subtitle: String?, selected: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     Row(
@@ -182,7 +185,7 @@ private fun RadioRow(title: String, subtitle: String?, selected: Boolean, onClic
     }
 }
 
-private fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+internal fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
 
 private val langNames = linkedMapOf(
     "" to "Kapalı", "tr" to "Türkçe", "en" to "İngilizce", "de" to "Almanca", "fr" to "Fransızca",
@@ -214,6 +217,41 @@ fun SettingsScreen() {
             }
         }
         item {
+            // Etkin profil kartı
+            val prof = com.streambox.app.Profiles.current
+            val src = remember { MutableInteractionSource() }
+            val focused by src.collectIsFocusedAsState()
+            Row(
+                Modifier.fillMaxWidth().padding(16.dp, 14.dp, 16.dp, 0.dp).clip(RoundedCornerShape(20.dp))
+                    .background(if (focused) Color(0xFF222B3D) else SCard)
+                    .clickable(interactionSource = src, indication = LocalIndication.current) { Nav.go(Route.SettingsPage("profiles")) }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProfileAvatar(prof, 56.dp, 14.dp)
+                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(prof.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("${com.streambox.app.Profiles.list.size} profil · Profilli giriş " + if (com.streambox.app.Profiles.askOnStart) "açık" else "kapalı",
+                        color = Muted, fontSize = 13.sp)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted)
+            }
+        }
+        item {
+            SettingGroup("Cihazlar") {
+                SettingRow(Icons.Default.QrCode2, Accent, "Telefon kumandası",
+                    if (com.streambox.app.remote.RemoteServer.running) "QR kodla bağlan · PIN ${com.streambox.app.remote.RemoteServer.pin}" else "Kapalı") {
+                    Nav.go(Route.SettingsPage("remote"))
+                }
+                GroupDivider()
+                SettingRow(Icons.Default.Wifi, Color(0xFF34C759), "Wi-Fi senkronizasyon", "Aynı ağdaki StreamBox'larla eşitle") {
+                    Nav.go(Route.SettingsPage("sync"))
+                }
+                GroupDivider()
+                SettingRow(Icons.Default.Backup, Color(0xFFFF9F0A), "Yedekleme", "Dosyaya yedekle / geri yükle") {
+                    Nav.go(Route.SettingsPage("backup"))
+                }
+            }
             SettingGroup("İçerik") {
                 SettingRow(Icons.Default.Movie, Color(0xFF01B4E4), "TMDB ayarları", "Katalog ve afişler · ${Settings.language}") {
                     Nav.go(Route.SettingsPage("tmdb"))
@@ -275,6 +313,10 @@ fun SettingsPageScreen(page: String) {
         "iptv" -> IptvPage()
         "log" -> LogPage()
         "icon" -> IconPage()
+        "remote" -> RemotePage()
+        "backup" -> BackupPage()
+        "sync" -> SyncPage()
+        "profiles" -> ProfilesPage()
         else -> AboutPage()
     }
 }

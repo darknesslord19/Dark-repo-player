@@ -29,9 +29,12 @@ object WatchHistory {
     private lateinit var appContext: Context
     private const val MAX = 40
 
+    /** Etkin profilin geçmiş dosyası (varsayılan profil eski "history" dosyasını kullanır). */
+    private val prefsName get() = Profiles.currentId.let { if (it == Profiles.DEFAULT_ID) "history" else "history_$it" }
+
     fun init(context: Context) {
         appContext = context.applicationContext
-        val arr = JSONArray(appContext.getSharedPreferences("history", 0).getString("list", "[]"))
+        val arr = JSONArray(appContext.getSharedPreferences(prefsName, 0).getString("list", "[]"))
         entries.clear()
         for (i in 0 until arr.length()) runCatching {
             val o = arr.getJSONObject(i)
@@ -48,7 +51,7 @@ object WatchHistory {
             arr.put(JSONObject().put("key", e.key).put("title", e.title).put("subtitle", e.subtitle ?: "").put("poster", e.poster ?: "")
                 .put("position", e.position).put("duration", e.duration).put("updated", e.updated).put("meta", e.meta))
         }
-        appContext.getSharedPreferences("history", 0).edit().putString("list", arr.toString()).apply()
+        appContext.getSharedPreferences(prefsName, 0).edit().putString("list", arr.toString()).apply()
     }
 
     /** Kayıtlı konum (kaldığın yerden başlatmak için). */

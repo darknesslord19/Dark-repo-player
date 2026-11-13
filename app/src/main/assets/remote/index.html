@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>DL Player Kumanda</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--card2:#1e222b;--line:#262b35;--txt:#e8eaee;--mut:#8e939b;--acc:#4f8cff;--red:#e50914;--gold:#f5c518}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:10px;padding:16px 18px 6px}
+.logo{width:34px;height:34px;border-radius:10px;background:#0b090b;display:grid;place-items:center;font-weight:900;font-size:15px;letter-spacing:-1px;box-shadow:0 0 0 1px #2a2a2e}
+.logo b{color:#d7d7db}.logo i{color:var(--red);font-style:normal}
+header h1{font-size:20px;margin:0;font-weight:800}
+header .dev{margin-left:auto;font-size:12px;color:var(--mut);text-align:right;max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34c759;margin-right:5px}
+.dot.off{background:#ff453a}
+main{padding:8px 16px}
+.page{display:none}.page.on{display:block}
+.card{background:var(--card);border-radius:22px;padding:16px}
+.np{display:flex;gap:14px;align-items:center}
+.np img{width:62px;height:88px;object-fit:cover;border-radius:10px;background:var(--card2)}
+.np .t{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np .s{color:var(--mut);font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-size:12px;font-weight:700;padding:4px 9px;border-radius:99px;white-space:nowrap}
+.b-play{background:#1d3b2a;color:#4cd97b}.b-pause{background:#3b311a;color:#ffc94d}.b-live{background:#3a1717;color:#ff5a5a}
+input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0 4px}
+.times{display:flex;justify-content:space-between;color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums}
+.idle{color:var(--mut);text-align:center;padding:10px 0;font-size:14px}
+.pad{display:grid;grid-template-columns:76px 1fr 76px;gap:14px;align-items:center;margin:26px 0 18px}
+.pill{background:var(--card);border-radius:40px;height:200px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:10px 0}
+.pill button{background:none;border:0;color:#fff;font-size:24px;width:100%;height:56px}
+.pill span{color:var(--mut);font-size:13px;font-weight:600}
+.dpad{position:relative;aspect-ratio:1;max-width:240px;width:100%;margin:auto;border-radius:50%;background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+.dpad button{position:absolute;background:none;border:0;color:#fff;font-size:22px;width:33%;height:33%}
+.dpad .u{top:0;left:33.5%}.dpad .d{bottom:0;left:33.5%}.dpad .l{left:0;top:33.5%}.dpad .r{right:0;top:33.5%}
+.dpad .ok{inset:30%;width:40%;height:40%;border-radius:50%;background:var(--acc);font-weight:900;font-size:24px;box-shadow:0 6px 24px #4f8cff55}
+button:active{transform:scale(.94);opacity:.85}
+.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.key{background:var(--card);border:0;color:#fff;border-radius:18px;padding:12px 0;font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px}
+.key svg{width:22px;height:22px}
+.media{display:flex;justify-content:center;align-items:center;gap:26px;margin:22px 0 8px}
+.media button{border:0;border-radius:50%;background:var(--card);color:#fff;width:66px;height:66px;display:grid;place-items:center}
+.media .pp{width:86px;height:86px;background:#fff;color:#000}
+.media svg{width:30px;height:30px}
+h2{font-size:18px;margin:22px 4px 10px;display:flex;align-items:center;gap:8px}
+h2:before{content:"";width:4px;height:18px;background:var(--acc);border-radius:2px}
+.hrow{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.hcard{flex:0 0 150px;background:var(--card);border-radius:14px;overflow:hidden;border:0;color:#fff;text-align:left;padding:0}
+.hcard img{width:100%;height:84px;object-fit:cover;display:block;background:var(--card2)}
+.hcard .p{height:3px;background:#ffffff33}.hcard .p i{display:block;height:100%;background:var(--acc)}
+.hcard div.n{padding:7px 9px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{display:flex;background:var(--card);border-radius:14px;padding:4px;gap:4px;margin-bottom:12px}
+.seg button{flex:1;border:0;background:none;color:var(--mut);padding:10px;border-radius:10px;font-weight:700;font-size:14px}
+.seg button.on{background:var(--acc);color:#fff}
+input.f,select.f{width:100%;background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:12px;padding:13px 14px;font-size:15px;margin-bottom:10px;outline:none}
+input.f:focus{border-color:var(--acc)}
+.btn{width:100%;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:700;background:var(--acc);color:#fff}
+.btn.sec{background:var(--card2)}
+.btn.red{background:#3a1717;color:#ff6b6b}
+.list .it{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:12px;margin-bottom:8px}
+.list .it img,.list .it .ph{width:46px;height:46px;border-radius:10px;object-fit:contain;background:var(--card2);flex:none;display:grid;place-items:center;color:var(--mut);font-weight:800}
+.list .it .x{flex:1;min-width:0}.list .it .x b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .it .x small{color:var(--mut)}
+.list .it button{border:0;background:var(--card2);color:#fff;border-radius:10px;padding:9px 12px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.poster{border:0;padding:0;background:none;color:#fff;text-align:left}
+.poster img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:12px;background:var(--card)}
+.poster div{font-size:12px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poster small{color:var(--mut);font-size:11px}
+nav{position:fixed;left:0;right:0;bottom:0;background:#12151bf2;backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--acc)}
+.sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;z-index:20}
+.sheet.on{display:flex}
+.sheet .in{background:var(--card);border-radius:24px 24px 0 0;width:100%;padding:20px 18px calc(22px + env(safe-area-inset-bottom));max-height:85vh;overflow:auto}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#fff;color:#000;padding:10px 16px;border-radius:99px;font-weight:600;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:30;white-space:nowrap}
+.toast.on{opacity:1}
+.pinbox{text-align:center;padding:30px 10px}
+.pinbox input{text-align:center;font-size:28px;letter-spacing:10px;font-weight:800}
+.hint{color:var(--mut);font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><b>D</b><i>L</i></div>
+  <h1>DL Player</h1>
+  <div class="dev" id="dev"><span class="dot off"></span>Bağlanıyor…</div>
+</header>
+<main>
+<!-- KUMANDA -->
+<section class="page on" id="p-remote">
+  <div class="card" id="np"></div>
+  <div class="pad">
+    <div class="pill"><button onclick="k('chup')">▲</button><span>Liste</span><button onclick="k('chdown')">▼</button></div>
+    <div class="dpad">
+      <button class="u" onclick="k('up')">▲</button><button class="l" onclick="k('left')">◀</button>
+      <button class="ok" onclick="k('ok')">OK</button>
+      <button class="r" onclick="k('right')">▶</button><button class="d" onclick="k('down')">▼</button>
+    </div>
+    <div class="pill"><button onclick="k('volup')">+</button><span id="vol">Ses</span><button onclick="k('voldown')">−</button></div>
+  </div>
+  <div class="row4">
+    <button class="key" onclick="k('back')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m6-6-6 6 6 6"/></svg>Geri</button>
+    <button class="key" onclick="k('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9H5v-9"/></svg>Ana ekran</button>
+    <button class="key" onclick="k('mute')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6m0-6 6 6"/></svg>Sessiz</button>
+    <button class="key" onclick="k('menu')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menü</button>
+  </div>
+  <div class="media">
+    <button onclick="k('rew')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-weight="700">10</text></svg></button>
+    <button class="pp" onclick="k('playpause')" id="ppb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+    <button onclick="k('ff')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-weight="700">10</text></svg></button>
+  </div>
+  <div id="hist"></div>
+</section>
+
+<!-- HESAPLAR -->
+<section class="page" id="p-acc">
+  <h2>IPTV hesapları</h2>
+  <div class="list" id="pls"></div>
+  <h2>Hesap ekle</h2>
+  <div class="seg"><button class="on" id="s-m3u" onclick="accMode('m3u')">M3U bağlantısı</button><button id="s-xt" onclick="accMode('xt')">Xtream</button></div>
+  <input class="f" id="a-name" placeholder="Hesap adı (isteğe bağlı)">
+  <div id="m-m3u"><input class="f" id="a-url" placeholder="http://…/playlist.m3u" inputmode="url"></div>
+  <div id="m-xt" style="display:none">
+    <input class="f" id="a-srv" placeholder="Sunucu (http://adres:port)" inputmode="url">
+    <input class="f" id="a-user" placeholder="Kullanıcı adı" autocapitalize="off">
+    <input class="f" id="a-pass" placeholder="Şifre" autocapitalize="off">
+  </div>
+  <button class="btn" onclick="addAcc()" id="addb">Ekle</button>
+</section>
+
+<!-- ARA -->
+<section class="page" id="p-search">
+  <div class="seg" style="margin-top:6px"><button class="on" id="s-film" onclick="searchMode('film')">Film & Dizi</button><button id="s-ch" onclick="searchMode('ch')">Kanallar</button></div>
+  <div id="m-film">
+    <input class="f" id="q-film" placeholder="Film ya da dizi ara…" enterkeyhint="search">
+    <button class="btn sec" onclick="tvSearch()" style="margin-bottom:14px">Eklentilerde TV'de ara</button>
+    <div class="grid" id="films"></div>
+  </div>
+  <div id="m-ch" style="display:none">
+    <select class="f" id="c-pl" onchange="loadGroups()"></select>
+    <select class="f" id="c-grp" onchange="searchCh()"><option value="">Tüm kategoriler</option></select>
+    <input class="f" id="q-ch" placeholder="Kanal ara…" enterkeyhint="search">
+    <div class="list" id="chs"></div>
+    <h2>Bağlantı gönder</h2>
+    <input class="f" id="u-url" placeholder="Video ya da yayın adresi (m3u8, mp4…)" inputmode="url">
+    <button class="btn" onclick="sendUrl()">TV'de oynat</button>
+  </div>
+</section>
+
+<!-- YEDEK -->
+<section class="page" id="p-backup">
+  <h2>Yedek</h2>
+  <div class="card">
+    <p class="hint" style="margin-top:0">Ayarlar, repolar, eklenti listesi, Nuvio, IPTV hesapları, profiller ve izleme geçmişi tek dosyada. Eklentiler geri yüklenince kaynaklarından yeniden indirilir.</p>
+    <button class="btn" onclick="downloadBackup()">Yedeği telefona indir</button>
+    <div style="height:10px"></div>
+    <button class="btn sec" onclick="document.getElementById('file').click()">Yedekten geri yükle</button>
+    <input type="file" id="file" accept=".json,application/json" style="display:none" onchange="restore(this)">
+  </div>
+  <h2>Bağlantı</h2>
+  <div class="card hint" id="conn"></div>
+  <div style="height:10px"></div>
+  <button class="btn red" onclick="logout()">PIN'i unut</button>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-p="remote" onclick="go('remote')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="5"/><circle cx="12" cy="8" r="2"/><path d="M10 14h4M10 17h4"/></svg>Kumanda</button>
+  <button data-p="acc" onclick="go('acc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg>Hesaplar</button>
+  <button data-p="search" onclick="go('search')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Ara</button>
+  <button data-p="backup" onclick="go('backup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M4 19h16"/></svg>Yedek</button>
+</nav>
+
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="sheetIn"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let PIN=new URLSearchParams(location.search).get('k')||localStorage.getItem('pin')||'';
+if(new URLSearchParams(location.search).get('k')){localStorage.setItem('pin',PIN);history.replaceState(null,'',location.pathname)}
+let cur='remote',seeking=false,lastState=null;
+
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2000)}
+async function api(path,opt={}){
+  opt.headers=Object.assign({'X-Pin':PIN},opt.headers||{});
+  const r=await fetch(path,opt);
+  if(r.status===401){askPin();throw new Error('PIN')}
+  const ct=r.headers.get('content-type')||'';
+  const d=ct.includes('json')?await r.json():await r.text();
+  if(!r.ok)throw new Error(d.error||('Hata '+r.status));
+  return d;
+}
+function askPin(){
+  openSheet(`<div class="pinbox"><h2 style="justify-content:center">PIN gir</h2><p class="hint">TV'de Ayarlar › Telefon kumandası ekranındaki 6 haneli PIN</p>
+  <input class="f" id="pin" inputmode="numeric" maxlength="6" value="${esc(PIN)}"><button class="btn" onclick="savePin()">Bağlan</button></div>`);
+  setTimeout(()=>$('pin')&&$('pin').focus(),100);
+}
+function savePin(){PIN=$('pin').value.trim();localStorage.setItem('pin',PIN);closeSheet();refresh()}
+function logout(){localStorage.removeItem('pin');PIN='';askPin()}
+function openSheet(h){$('sheetIn').innerHTML=h;$('sheet').classList.add('on')}
+function closeSheet(){$('sheet').classList.remove('on')}
+
+function k(code){navigator.vibrate&&navigator.vibrate(12);api('/api/key?code='+code,{method:'POST'}).then(()=>setTimeout(poll,250)).catch(e=>e.message!=='PIN'&&toast(e.message))}
+function fmt(ms){ms=Math.max(0,Math.floor(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')}
+
+function renderState(s){
+  lastState=s;
+  $('dev').innerHTML=`<span class="dot"></span>${esc(s.device)}${s.profile?' · '+esc(s.profile):''}`;
+  $('vol').textContent='Ses '+s.volume+(s.muted?' 🔇':'');
+  const p=s.playing,np=$('np');
+  if(!p){np.innerHTML='<div class="idle">Şu an bir şey oynatılmıyor.<br>Ara sekmesinden film ya da kanal seçebilirsin.</div>';setPP(false);return}
+  const badge=p.live&&!p.duration?'<span class="badge b-live">● Canlı</span>':p.isPlaying?'<span class="badge b-play">▶ Oynatılıyor</span>':'<span class="badge b-pause">❚❚ Duraklatıldı</span>';
+  if(!np.querySelector('.np')||np.dataset.t!==p.title+p.subtitle){
+    np.dataset.t=p.title+p.subtitle;
+    np.innerHTML=`<div class="np">${p.poster?`<img src="${esc(p.poster)}" onerror="this.style.visibility='hidden'">`:''}<div style="flex:1;min-width:0"><div class="t">${esc(p.title)}</div><div class="s">${esc(p.subtitle||'')}${p.count>1?' · '+(p.index+1)+'/'+p.count:''}</div></div><div id="bdg"></div></div>
+    <div id="prog"><input type="range" id="seek" min="0" max="1000" value="0"><div class="times"><span id="tp"></span><span id="td"></span></div></div>`;
+    const sk=$('seek');
+    sk.oninput=()=>{seeking=true;$('tp').textContent=fmt(sk.value/1000*lastState.playing.duration)};
+    sk.onchange=()=>{api('/api/seek?ms='+Math.round(sk.value/1000*lastState.playing.duration),{method:'POST'}).finally(()=>setTimeout(()=>seeking=false,600))};
+  }
+  $('bdg').innerHTML=badge;
+  $('prog').style.display=p.duration>0?'block':'none';
+  if(!seeking&&p.duration>0){$('seek').value=Math.round(p.position/p.duration*1000);$('tp').textContent=fmt(p.position);$('td').textContent=fmt(p.duration)}
+  setPP(p.isPlaying);
+}
+function setPP(playing){$('ppb').innerHTML=playing?'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'}
+async function poll(){if(!PIN){askPin();return}try{renderState(await api('/api/state'))}catch(e){$('dev').innerHTML='<span class="dot off"></span>Bağlantı yok'}}
+async function loadHist(){
+  try{const h=await api('/api/history');
+    $('hist').innerHTML=h.length?`<h2>Kaldığın yerden izle</h2><div class="hrow">${h.map(e=>`<button class="hcard" onclick="openHist('${encodeURIComponent(e.key)}')"><img src="${esc(e.poster)}" onerror="this.style.visibility='hidden'"><div class="p"><i style="width:${Math.round(e.progress*100)}%"></i></div><div class="n">${esc(e.title)}</div></button>`).join('')}</div>`:'';
+  }catch(e){}
+}
+function openHist(key){api('/api/history/open?key='+key,{method:'POST'}).then(()=>toast('TV\'de açıldı')).catch(e=>toast(e.message))}
+
+// ---- Hesaplar
+let mode='m3u';
+function accMode(m){mode=m;$('s-m3u').classList.toggle('on',m==='m3u');$('s-xt').classList.toggle('on',m==='xt');$('m-m3u').style.display=m==='m3u'?'block':'none';$('m-xt').style.display=m==='xt'?'block':'none'}
+async function loadPls(){
+  $('pls').innerHTML='<div class="idle">Yükleniyor…</div>';
+  try{const l=await api('/api/playlists');
+    $('pls').innerHTML=l.length?l.map(p=>`<div class="it"><div class="ph">${esc(p.name.slice(0,2).toUpperCase())}</div><div class="x"><b>${esc(p.name)}</b><small>${p.channels} kanal · ${p.groups} kategori</small></div><button onclick="delPl('${p.id}','${esc(p.name)}')">Sil</button></div>`).join(''):'<div class="idle">Henüz hesap yok.</div>';
+    const sel=$('c-pl');sel.innerHTML='<option value="">Tüm hesaplar</option>'+l.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  }catch(e){$('pls').innerHTML=''}
+}
+async function delPl(id,name){if(!confirm(name+' silinsin mi?'))return;await api('/api/playlists/remove?id='+id,{method:'POST'});toast('Silindi');loadPls()}
+async function addAcc(){
+  const body={name:$('a-name').value};
+  if(mode==='m3u')body.url=$('a-url').value;else{body.server=$('a-srv').value;body.user=$('a-user').value;body.pass=$('a-pass').value}
+  const b=$('addb');b.disabled=true;b.textContent='Ekleniyor…';
+  try{await api('/api/playlists/add',{method:'POST',body:JSON.stringify(body)});toast('Hesap eklendi');['a-name','a-url','a-srv','a-user','a-pass'].forEach(i=>$(i).value='');loadPls()}
+  catch(e){toast(e.message)}finally{b.disabled=false;b.textContent='Ekle'}
+}
+
+// ---- Ara
+function searchMode(m){$('s-film').classList.toggle('on',m==='film');$('s-ch').classList.toggle('on',m==='ch');$('m-film').style.display=m==='film'?'block':'none';$('m-ch').style.display=m==='ch'?'block':'none';if(m==='ch'){loadPls();searchCh()}}
+let films=[],ft;
+$('q-film').addEventListener('input',()=>{clearTimeout(ft);ft=setTimeout(searchFilm,450)});
+async function searchFilm(){
+  const q=$('q-film').value.trim();if(q.length<2){$('films').innerHTML='';return}
+  try{films=await api('/api/search?q='+encodeURIComponent(q));
+    $('films').innerHTML=films.length?films.map((f,i)=>`<button class="poster" onclick="filmSheet(${i})"><img src="${esc(f.poster)}" onerror="this.style.visibility='hidden'"><div>${esc(f.title)}</div><small>${esc(f.year)} · ${f.type==='tv'?'Dizi':'Film'}</small></button>`).join(''):'<div class="idle" style="grid-column:1/-1">Sonuç yok</div>';
+  }catch(e){toast(e.message)}
+}
+function filmSheet(i){const f=films[i];
+  openSheet(`<div style="display:flex;gap:14px">${f.poster?`<img src="${esc(f.poster)}" style="width:96px;border-radius:12px">`:''}<div><h2 style="margin-top:0">${esc(f.title)}</h2><div class="hint">${esc(f.year)} · ${f.type==='tv'?'Dizi':'Film'}${f.rating?' · ★ '+(+f.rating).toFixed(1):''}</div></div></div>
+  <p class="hint">${esc(f.overview||'')}</p><button class="btn" onclick="openFilm(${i})">TV'de aç</button>`)}
+async function openFilm(i){try{await api('/api/open/tmdb',{method:'POST',body:JSON.stringify(films[i])});closeSheet();toast('TV\'de açıldı');go('remote')}catch(e){toast(e.message)}}
+async function tvSearch(){const q=$('q-film').value.trim();if(!q){toast('Önce bir şey yaz');return}await api('/api/tvsearch?q='+encodeURIComponent(q),{method:'POST'});toast('TV\'de aranıyor');go('remote')}
+let chs=[],ct;
+$('q-ch').addEventListener('input',()=>{clearTimeout(ct);ct=setTimeout(searchCh,400)});
+async function loadGroups(){
+  const pl=$('c-pl').value;$('c-grp').innerHTML='<option value="">Tüm kategoriler</option>';
+  if(pl){const d=await api('/api/channels?pl='+pl+'&q=%00');$('c-grp').innerHTML+=d.groups.map(g=>`<option>${esc(g)}</option>`).join('')}
+  searchCh();
+}
+async function searchCh(){
+  const pl=$('c-pl').value,q=$('q-ch').value.trim(),g=$('c-grp').value;
+  if(!pl&&q.length<2){$('chs').innerHTML='<div class="idle">Bir hesap seç ya da kanal adı yaz.</div>';return}
+  $('chs').innerHTML='<div class="idle">Yükleniyor…</div>';
+  try{const d=await api(`/api/channels?pl=${pl}&q=${encodeURIComponent(q)}&group=${encodeURIComponent(g)}`);chs=d.channels;
+    $('chs').innerHTML=chs.length?chs.map((c,i)=>`<div class="it">${c.logo?`<img src="${esc(c.logo)}" onerror="this.outerHTML='<div class=ph>TV</div>'">`:'<div class="ph">TV</div>'}<div class="x"><b>${esc(c.name)}</b><small>${esc(c.group)}</small></div><button onclick="playCh(${i})">▶ Oynat</button></div>`).join(''):'<div class="idle">Kanal bulunamadı</div>';
+  }catch(e){toast(e.message)}
+}
+async function playCh(i){const c=chs[i];try{await api(`/api/play/channel?pl=${c.pl}&url=${encodeURIComponent(c.url)}`,{method:'POST'});toast(c.name+' açılıyor');go('remote')}catch(e){toast(e.message)}}
+async function sendUrl(){const u=$('u-url').value.trim();try{await api('/api/play/url?url='+encodeURIComponent(u),{method:'POST'});toast('TV\'de oynatılıyor');go('remote')}catch(e){toast(e.message)}}
+
+// ---- Yedek
+async function downloadBackup(){
+  try{const r=await fetch('/api/backup',{headers:{'X-Pin':PIN}});if(r.status===401){askPin();return}
+    const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='streambox-yedek-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Yedek indirildi')}catch(e){toast(e.message)}
+}
+async function restore(inp){
+  const f=inp.files[0];inp.value='';if(!f)return;
+  if(!confirm('TV\'deki ayarların yerine yedektekiler gelecek ve uygulama yeniden başlayacak. Devam?'))return;
+  try{await api('/api/restore',{method:'POST',body:await f.text()});toast('Geri yüklendi, TV yeniden başlıyor')}catch(e){toast(e.message)}
+}
+
+function go(p){cur=p;document.querySelectorAll('.page').forEach(e=>e.classList.toggle('on',e.id==='p-'+p));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  if(p==='acc')loadPls();if(p==='remote'){poll();loadHist()}
+  if(p==='backup')$('conn').innerHTML=`Adres: <b>${location.host}</b><br>Cihaz: <b>${esc(lastState?.device||'-')}</b>`;window.scrollTo(0,0)}
+function refresh(){poll();loadHist()}
+setInterval(()=>{if(cur==='remote'&&!document.hidden)poll()},1000);
+setInterval(()=>{if(cur==='remote'&&!document.hidden)loadHist()},15000);
+refresh();
+</script>
+</body>
+</html>

@@ -87,6 +87,8 @@ class PlayerActivity : ComponentActivity() {
         val workingUa = java.util.concurrent.ConcurrentHashMap<String, Int>()
         @Volatile private var pendingList: List<PlayItem> = emptyList()
         @Volatile private var pendingIndex: Int = 0
+        /** Şu an açık oynatıcı (telefon kumandası için). */
+        @Volatile var current: java.lang.ref.WeakReference<PlayerActivity>? = null
 
         /** Tek yayın. */
         fun start(context: Context, item: PlayItem) = start(context, listOf(item), 0)
@@ -113,6 +115,7 @@ class PlayerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         items = pendingList
         if (items.isEmpty()) { finish(); return }
+        current = java.lang.ref.WeakReference(this)
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -372,6 +375,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (current?.get() === this) current = null
         window.decorView.removeCallbacks(saver)
         player?.release()
         player = null
