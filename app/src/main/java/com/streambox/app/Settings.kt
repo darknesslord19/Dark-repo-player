@@ -29,16 +29,26 @@ object Settings {
     /** Varsayılan ekran oranı: 0 sığdır, 4 yakınlaştır, 3 uzat (AspectRatioFrameLayout değerleri). */
     var resizeMode by mutableStateOf(0)
         private set
-    /** IPTV için tarayıcı kimliği: VLC, BROWSER, OKHTTP. */
-    var iptvUa by mutableStateOf("VLC")
+    /** IPTV kimliği: AUTO (sırayla dene), EXO, VLC, BROWSER, OKHTTP. */
+    var iptvUa by mutableStateOf("AUTO")
         private set
 
-    val iptvUserAgent: String
-        get() = when (iptvUa) {
-            "BROWSER" -> Net.USER_AGENT
-            "OKHTTP" -> "okhttp/4.12.0"
-            else -> "VLC/3.0.20 LibVLC/3.0.20"
+    fun uaFor(key: String): String = when (key) {
+        "VLC" -> "VLC/3.0.20 LibVLC/3.0.20"
+        "BROWSER" -> Net.USER_AGENT
+        "OKHTTP" -> "okhttp/4.12.0"
+        else -> "StreamBox/1.0 (Linux;Android ${android.os.Build.VERSION.RELEASE}) ExoPlayerLib/1.8.0"
+    }
+
+    /** Denenecek IPTV kimlikleri: seçilen önce, diğerleri yedek. */
+    val iptvUserAgents: List<String>
+        get() {
+            val order = listOf("EXO", "VLC", "BROWSER", "OKHTTP")
+            val first = if (iptvUa in order) listOf(iptvUa) else emptyList()
+            return (first + order).distinct().map { uaFor(it) }
         }
+
+    val iptvUserAgent: String get() = iptvUserAgents.first()
 
     /** Ana sayfada seçili kaynak (kaynak adı ya da "__tmdb__"). */
     var homeSource by mutableStateOf("__tmdb__")
@@ -53,7 +63,7 @@ object Settings {
         subLang = prefs.getString("subLang", "tr") ?: "tr"
         audioLang = prefs.getString("audioLang", "tr") ?: "tr"
         resizeMode = prefs.getInt("resizeMode", 0)
-        iptvUa = prefs.getString("iptvUa", "VLC") ?: "VLC"
+        iptvUa = prefs.getString("iptvUa2", "AUTO") ?: "AUTO"
     }
 
     fun updateTmdbKey(v: String) {
@@ -64,7 +74,7 @@ object Settings {
     fun updateSubLang(v: String) { subLang = v; prefs.edit().putString("subLang", v).apply() }
     fun updateAudioLang(v: String) { audioLang = v; prefs.edit().putString("audioLang", v).apply() }
     fun updateResizeMode(v: Int) { resizeMode = v; prefs.edit().putInt("resizeMode", v).apply() }
-    fun updateIptvUa(v: String) { iptvUa = v; prefs.edit().putString("iptvUa", v).apply() }
+    fun updateIptvUa(v: String) { iptvUa = v; prefs.edit().putString("iptvUa2", v).apply() }
 
     fun updateDns(v: String) {
         dns = v

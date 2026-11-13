@@ -134,7 +134,7 @@ object IptvStore {
     }
 
     suspend fun addUrl(name: String, url: String): Playlist {
-        val text = Net.getText(url.trim(), mapOf("User-Agent" to com.streambox.app.Settings.iptvUserAgent))
+        val text = fetchWithUas(url.trim())
         if (M3u.parse(text).isEmpty()) throw IllegalArgumentException("Listede kanal bulunamadı")
         val p = Playlist(System.currentTimeMillis().toString(36), name.ifBlank { Uri.parse(url).host ?: "Liste" }, url.trim())
         withContext(Dispatchers.IO) { File(dir(), p.id + ".m3u").writeText(text) }
@@ -156,9 +156,18 @@ object IptvStore {
     suspend fun channels(p: Playlist, refresh: Boolean = false): List<Channel> = withContext(Dispatchers.IO) {
         val f = File(dir(), p.id + ".m3u")
         if ((refresh || !f.exists()) && p.url != null) runCatching {
-            f.writeText(Net.getText(p.url, mapOf("User-Agent" to com.streambox.app.Settings.iptvUserAgent)))
+            f.writeText(fetchWithUas(p.url))
         }
         if (f.exists()) M3u.parse(f.readText()) else emptyList()
+    }
+
+    /** Listeyi indirir; sunucu bir kimliği reddederse sıradakini dener. */
+    private suspend fun fetchWithUas(url: String): String {
+        var last: Exception? = null
+        for (ua in com.streambox.app.Settings.iptvUserAgents) {
+            try { return Net.getText(url, mapOf("User-Agent" to ua)) } catch (e: Exception) { last = e }
+        }
+        throw last ?: IllegalStateException("Liste indirilemedi")
     }
 
     fun rename(p: Playlist, name: String) {

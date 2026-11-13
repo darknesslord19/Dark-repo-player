@@ -191,7 +191,9 @@ private val langNames = linkedMapOf(
 
 private val resizeNames = linkedMapOf(0 to "Sığdır", 4 to "Yakınlaştır", 3 to "Uzat")
 private val uaNames = linkedMapOf(
-    "VLC" to ("VLC" to "Çoğu IPTV sunucusunun beklediği kimlik (önerilen)"),
+    "AUTO" to ("Otomatik (önerilen)" to "Önce ExoPlayer; sunucu reddederse sırayla diğerlerini dener"),
+    "EXO" to ("ExoPlayer" to "Çoğu IPTV uygulamasının kullandığı kimlik"),
+    "VLC" to ("VLC" to "Bazı sunucular ister, bazıları engeller"),
     "BROWSER" to ("Tarayıcı" to "Masaüstü Chrome gibi görünür"),
     "OKHTTP" to ("Uygulama" to "Sade okhttp kimliği"),
 )
@@ -232,7 +234,7 @@ fun SettingsScreen() {
                 }
                 GroupDivider()
                 SettingRow(Icons.Default.LiveTv, Color(0xFFFF9F0A), "IPTV ayarları",
-                    "${IptvStore.playlists.size} hesap · Kimlik: ${uaNames[Settings.iptvUa]?.first ?: "VLC"}") {
+                    "${IptvStore.playlists.size} hesap · Kimlik: ${uaNames[Settings.iptvUa]?.first ?: "Otomatik"}") {
                     Nav.go(Route.SettingsPage("iptv"))
                 }
             }

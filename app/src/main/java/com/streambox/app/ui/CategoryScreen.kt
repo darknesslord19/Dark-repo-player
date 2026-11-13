@@ -57,7 +57,10 @@ fun CategoryScreen(route: Route.Category) {
         if (!nearEnd || ended || loading) return@LaunchedEffect
         loading = true
         val next = page + if (page == 1 && cards.size > 0) 1 else 0
-        val result = runCatching { load(next) }.onFailure { AppLog.e("${route.title} sayfa $next", it) }.getOrNull()
+        val result = try { load(next) } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            AppLog.e("${route.title} sayfa $next", t); null
+        }
         val fresh = result.orEmpty().filter { seen.add(it.key) }
         cards.addAll(fresh)
         if (result == null || fresh.isEmpty()) ended = true

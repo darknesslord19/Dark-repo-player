@@ -79,6 +79,8 @@ class PlayerUiState {
 class PlayerActivity : ComponentActivity() {
 
     companion object {
+        /** IPTV: sunucu → çalışan kimlik sırası (oturum boyunca). */
+        val workingUa = java.util.concurrent.ConcurrentHashMap<String, Int>()
         @Volatile private var pendingList: List<PlayItem> = emptyList()
         @Volatile private var pendingIndex: Int = 0
 
@@ -140,7 +142,10 @@ class PlayerActivity : ComponentActivity() {
             override fun onIsPlayingChanged(isPlaying: Boolean) { ui.playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {
                 ui.buffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY) { ui.error = null; ui.duration = p.duration.coerceAtLeast(0) }
+                if (state == Player.STATE_READY) {
+                    ui.error = null; ui.duration = p.duration.coerceAtLeast(0)
+                    if (current().live) workingUa[hostOf(current().url)] = uaAttempt
+                }
                 if (state == Player.STATE_ENDED && ui.index < items.size - 1 && !current().live) {
                     // dizi/kanal listesinde sonrakine geçme yerine sadece kontrolleri göster
                     showControls()
@@ -152,6 +157,16 @@ class PlayerActivity : ComponentActivity() {
             }
             override fun onPlayerError(error: PlaybackException) {
                 val item = current()
+                // IPTV: sunucu kimliği reddettiyse (401/403) bir sonraki kimlikle tekrar dene
+                val explicitUa = item.headers.keys.any { k -> k.equals("User-Agent", true) }
+                val uas = com.streambox.app.Settings.iptvUserAgents
+                if (item.live && !explicitUa && error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS &&
+                    uaAttempt < uas.size - 1
+                ) {
+                    uaAttempt++
+                    AppLog.i("IPTV: sunucu reddetti, başka kimlikle deneniyor (${uaAttempt + 1}/${uas.size}): ${uas[uaAttempt]}")
+                    load(item, player?.currentPosition ?: 0); return
+                }
                 AppLog.e("Oynatma hatası: ${item.title} → ${error.errorCodeName}", error)
                 if (item.kind == PlayItem.Kind.AUTO && lastMime == null &&
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
@@ -159,7 +174,9 @@ class PlayerActivity : ComponentActivity() {
                     load(item.copy(kind = PlayItem.Kind.HLS), 0); return
                 }
                 ui.error = when (error.errorCode) {
-                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Sunucu yayını reddetti (HTTP hatası)"
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> if (item.live)
+                        "Sunucu yayını reddetti. Hesabın süresi dolmuş ya da bağlantı sınırı aşılmış olabilir."
+                    else "Sunucu yayını reddetti (HTTP hatası)"
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Bağlantı kurulamadı"
                     PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
@@ -176,10 +193,15 @@ class PlayerActivity : ComponentActivity() {
     fun current(): PlayItem = items[ui.index]
 
     private var lastMime: String? = null
+    /** IPTV: şu an denenen kimlik sırası (403 alınırsa sonrakine geçilir). */
+    private var uaAttempt = 0
+
+    private fun hostOf(url: String) = runCatching { Uri.parse(url).host }.getOrNull() ?: ""
 
     fun playIndex(i: Int) {
         if (i !in items.indices) return
         ui.index = i
+        uaAttempt = workingUa[hostOf(items[i].url)] ?: 0
         load(items[i], 0)
     }
 
@@ -189,7 +211,7 @@ class PlayerActivity : ComponentActivity() {
         ui.buffering = true
         val headers = it.headers.filterKeys { k -> !k.equals("User-Agent", true) }
         val ua = it.headers.entries.firstOrNull { e -> e.key.equals("User-Agent", true) }?.value
-            ?: if (it.live) com.streambox.app.Settings.iptvUserAgent else Net.USER_AGENT
+            ?: if (it.live) com.streambox.app.Settings.iptvUserAgents.let { l -> l[uaAttempt.coerceIn(0, l.size - 1)] } else Net.USER_AGENT
         val http = OkHttpDataSource.Factory(Net.client).setUserAgent(ua).setDefaultRequestProperties(headers)
         val factory = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http))
 
