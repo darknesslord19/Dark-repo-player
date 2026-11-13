@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 
 /** Uygulama ikonu seçenekleri (manifestteki activity-alias'lar). */
 enum class AppIcon(val alias: String, val label: String, val logo: Int?) {
+    DL("LauncherDL", "DL Player", R.drawable.logo_dl),
     PURPLE("LauncherPurple", "Mor", R.drawable.logo_purple),
     GREEN("LauncherGreen", "Yeşil", R.drawable.logo_green),
     CLASSIC("LauncherClassic", "Klasik", null);

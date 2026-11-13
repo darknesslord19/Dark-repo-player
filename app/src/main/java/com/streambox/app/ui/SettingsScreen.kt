@@ -452,7 +452,7 @@ private fun AboutPage() {
 @Composable
 private fun IconPage() {
     val context = LocalContext.current
-    SubPage("Uygulama ikonu", "Ana ekrandaki ve uygulama içindeki logo") {
+    SubPage("Uygulama ikonu", "Telefonun ana ekranındaki ikon") {
         Block("İkon seç", "Değişiklik birkaç saniye içinde ana ekrana yansır. Bazı başlatıcılarda kısayolu yeniden eklemen gerekebilir.") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 com.streambox.app.AppIcon.entries.forEach { icon ->

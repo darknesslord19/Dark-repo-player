@@ -178,18 +178,12 @@ fun SideNavBar(tabs: List<NavTab>, selected: Route, onSelect: (Route) -> Unit) {
     }
 }
 
-/** Seçili uygulama ikonunu gösterir (Klasik ise mavi oynat dairesi). */
+/** Menüdeki sabit logo: DL Player. */
 @Composable
 fun AppLogo(size: androidx.compose.ui.unit.Dp) {
-    val res = com.streambox.app.AppIcon.current.logo
-    if (res != null) {
-        androidx.compose.foundation.Image(
-            androidx.compose.ui.res.painterResource(res), "StreamBox",
-            modifier = Modifier.size(size).clip(CircleShape)
-        )
-    } else {
-        Box(Modifier.size(size * 0.66f).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.PlayArrow, "StreamBox", tint = Color.White, modifier = Modifier.size(size * 0.45f))
-        }
-    }
+    androidx.compose.foundation.Image(
+        androidx.compose.ui.res.painterResource(com.streambox.app.R.drawable.logo_dl), "DL Player",
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        modifier = Modifier.size(size).clip(CircleShape)
+    )
 }
