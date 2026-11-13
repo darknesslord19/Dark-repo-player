@@ -157,6 +157,9 @@ class PlayerActivity : ComponentActivity() {
                 ui.buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
                     ui.error = null; ui.duration = p.duration.coerceAtLeast(0)
+                    // Hazır: istenen konuma gerçekten gidildiyse yedeğe gerek yok
+                    if (startPos > 0 && p.currentPosition < startPos - 5_000 && p.isCurrentMediaItemSeekable) p.seekTo(startPos)
+                    startPos = 0
                     if (current().live) workingUa[hostOf(current().url)] = uaAttempt
                 }
                 if (state == Player.STATE_ENDED && ui.index < items.size - 1 && !current().live) {
@@ -178,13 +181,13 @@ class PlayerActivity : ComponentActivity() {
                 ) {
                     uaAttempt++
                     AppLog.i("IPTV: sunucu reddetti, başka kimlikle deneniyor (${uaAttempt + 1}/${uas.size}): ${uas[uaAttempt]}")
-                    load(item, player?.currentPosition ?: 0); return
+                    load(item, resumePos()); return
                 }
                 AppLog.e("Oynatma hatası: ${item.title} → ${error.errorCodeName}", error)
                 if (item.kind == PlayItem.Kind.AUTO && lastMime == null &&
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED
                 ) {
-                    load(item.copy(kind = PlayItem.Kind.HLS), 0); return
+                    load(item.copy(kind = PlayItem.Kind.HLS), resumePos()); return
                 }
                 ui.error = when (error.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> if (item.live)
@@ -208,6 +211,9 @@ class PlayerActivity : ComponentActivity() {
     private var lastMime: String? = null
     /** IPTV: şu an denenen kimlik sırası (403 alınırsa sonrakine geçilir). */
     private var uaAttempt = 0
+    /** Kaldığın yerden başlatılan konum: yayın hazır olana kadar tekrar denemelerde korunur. */
+    private var startPos = 0L
+    private fun resumePos() = maxOf(player?.currentPosition ?: 0L, startPos)
 
     private fun hostOf(url: String) = runCatching { Uri.parse(url).host }.getOrNull() ?: ""
 
@@ -217,6 +223,7 @@ class PlayerActivity : ComponentActivity() {
         ui.index = i
         uaAttempt = workingUa[hostOf(items[i].url)] ?: 0
         val start = com.streambox.app.WatchHistory.positionFor(items[i].resumeKey)
+        startPos = start
         load(items[i], start)
         if (start > 0) android.widget.Toast.makeText(this, "Kaldığın yerden devam ediliyor", android.widget.Toast.LENGTH_SHORT).show()
     }
@@ -260,7 +267,7 @@ class PlayerActivity : ComponentActivity() {
         p.playWhenReady = true
     }
 
-    fun retry() = load(current(), player?.currentPosition ?: 0)
+    fun retry() = load(current(), resumePos())
 
     /** İzleme konumunu "Kaldığın yerden izle" için kaydeder. */
     fun saveProgress() {

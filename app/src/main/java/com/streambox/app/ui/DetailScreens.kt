@@ -418,7 +418,7 @@ fun CsDetailScreen(card: CsCard) {
                             item = PlayItem(title, l.url, headers,
                                 when { l.isHls -> PlayItem.Kind.HLS; l.isDash -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
                                 subs.toList(),
-                                resumeKey = "cs|${card.api.name}|${card.url}|$data",
+                                resumeKey = "cs|${card.api.name}|${card.url}|" + csEpId(details?.episodes?.firstOrNull { it.data == data }),
                                 meta = com.streambox.app.WatchHistory.csMeta(card.api.name, card.url, details?.title ?: card.name,
                                     title.substringAfter(" · ", "").ifBlank { null }, details?.poster ?: card.poster)),
                         )
@@ -464,8 +464,8 @@ fun CsDetailScreen(card: CsCard) {
             else -> {
                 item {
                     val title = d.title
-                    val lastData = last?.key?.removePrefix(prefix)
-                    val lastEp = lastData?.let { ld -> d.episodes.firstOrNull { it.data == ld } }
+                    val lastId = last?.key?.removePrefix(prefix)
+                    val lastEp = lastId?.let { id -> d.episodes.firstOrNull { csEpId(it) == id } }
                     val firstEp = eps.firstOrNull() ?: d.episodes.firstOrNull()
                     val playData = d.playData
                     val (label, onPlay) = when {
@@ -494,7 +494,7 @@ fun CsDetailScreen(card: CsCard) {
                     }
                     items(eps) { ep ->
                         EpisodeCard(ep.episode, ep.title, null, ep.poster, d.headers + card.posterHeaders, null,
-                            com.streambox.app.WatchHistory.entry(prefix + ep.data)?.progress?.takeIf { it > 0f }) {
+                            com.streambox.app.WatchHistory.entry(prefix + csEpId(ep))?.progress?.takeIf { it > 0f }) {
                             target = null; target = "${d.title} · ${ep.title}" to ep.data
                         }
                     }
@@ -508,6 +508,17 @@ fun CsDetailScreen(card: CsCard) {
     target?.let { (title, _) ->
         StreamsDialog(title, options, if (busy) "Bağlantılar aranıyor… (${options.size})" else "${options.size} bağlantı", busy) { target = null }
     }
+}
+
+/**
+ * CloudStream bölümü için kalıcı kimlik. Eklentilerin "data" değeri her açılışta değişebildiğinden
+ * (oturum/token) sezon-bölüm numarası kullanılır; film için "film".
+ */
+fun csEpId(ep: CsEpisode?): String = when {
+    ep == null -> "film"
+    ep.season != null && ep.episode != null -> "s${ep.season}e${ep.episode}"
+    ep.episode != null -> "e${ep.episode}"
+    else -> "t:" + ep.title
 }
 
 /** "23 dk kaldı" metni. */
