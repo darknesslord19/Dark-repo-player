@@ -10,6 +10,7 @@ import com.streambox.app.onMain
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import kotlinx.coroutines.launch
 
 /** Stremio katalog eklentisi içindeki tek bir katalog. */
 data class CatalogDef(val type: String, val id: String, val name: String, val hasSearch: Boolean, val genres: List<String>)
@@ -32,6 +33,24 @@ object CatalogManager {
         val arr = JSONArray(appContext.getSharedPreferences("catalogs", 0).getString("list", "[]"))
         addons.clear()
         for (i in 0 until arr.length()) runCatching { addons += parse(arr.getJSONObject(i).getString("url"), arr.getJSONObject(i).getJSONObject("manifest")) }
+            .onFailure { AppLog.e("Katalog kaydı okunamadı", it) }
+        // Eklentiler sık güncellenir (katalog adları/kimlikleri değişebilir): açılışta manifesti tazele
+        com.streambox.app.StreamBoxApp.instance?.scope?.launch {
+            addons.toList().forEach { a ->
+                runCatching { fetchManifest(a.url) }.onSuccess { o ->
+                    val fresh = parse(a.url, o)
+                    onMain { val i = addons.indexOfFirst { it.url == a.url }; if (i >= 0) { addons[i] = fresh; save() } }
+                }.onFailure { AppLog.e("Katalog manifesti yenilenemedi: ${a.name}", it) }
+            }
+        }
+    }
+
+    private val jsonHeaders = mapOf("Accept" to "application/json", "User-Agent" to "Mozilla/5.0 (Linux; Android 13) StreamBox")
+
+    private suspend fun fetchManifest(b: String): JSONObject {
+        val text = runCatching { Net.getText("$b/manifest.json", jsonHeaders) }.getOrNull()?.takeIf { it.trim().startsWith("{") }
+            ?: Net.getText(b, jsonHeaders)
+        return JSONObject(text)
     }
 
     private val raw = mutableMapOf<String, JSONObject>()
@@ -77,9 +96,7 @@ object CatalogManager {
     /** Eklentiyi ekler; manifest kökte ya da /manifest.json altında olabilir. */
     suspend fun add(input: String): CatalogAddon {
         val b = base(input)
-        val text = runCatching { Net.getText("$b/manifest.json") }.getOrNull()?.takeIf { it.trim().startsWith("{") }
-            ?: Net.getText(b)
-        val o = JSONObject(text)
+        val o = fetchManifest(b)
         if (!isCatalogManifest(o)) throw IllegalArgumentException("Bu bir katalog eklentisi değil")
         val addon = parse(b, o)
         onMain {
@@ -103,7 +120,8 @@ object CatalogManager {
             if (skip > 0) "skip=$skip" else null,
         )
         val url = "${addon.url}/catalog/${cat.type}/${enc(cat.id)}" + (if (extras.isEmpty()) "" else "/" + extras.joinToString("&")) + ".json"
-        val o = JSONObject(Net.getText(url))
+        val text = Net.getText(url, jsonHeaders)
+        val o = runCatching { JSONObject(text) }.getOrElse { throw java.io.IOException("Geçersiz yanıt: ${text.take(80)}") }
         val metas = o.optJSONArray("metas") ?: return emptyList()
         return (0 until metas.length()).mapNotNull { i ->
             val m = metas.optJSONObject(i) ?: return@mapNotNull null

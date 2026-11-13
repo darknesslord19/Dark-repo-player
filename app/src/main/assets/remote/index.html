@@ -93,6 +93,7 @@ nav button.on{color:var(--acc)}
 <main>
 <!-- KUMANDA -->
 <section class="page on" id="p-remote">
+  <div class="card hint" id="a11y" style="display:none;margin-bottom:12px;background:#2a2312;color:#ffcf66">TV ana ekranında ve diğer uygulamalarda da yön tuşlarının çalışması için TV'de <b>Ayarlar › Telefon kumandası › Erişilebilirlikte aç</b>. StreamBox içinde şimdiden çalışıyor.</div>
   <div class="card" id="np"></div>
   <div class="pad">
     <div class="pill"><button onclick="k('chup')">▲</button><span>Liste</span><button onclick="k('chdown')">▼</button></div>
@@ -213,6 +214,7 @@ function renderState(s){
   lastState=s;
   $('dev').innerHTML=`<span class="dot"></span>${esc(s.device)}${s.profile?' · '+esc(s.profile):''}`;
   $('vol').textContent='Ses '+s.volume+(s.muted?' 🔇':'');
+  $('a11y').style.display=s.fullControl?'none':'block';
   const p=s.playing,np=$('np');
   if(!p){np.innerHTML='<div class="idle">Şu an bir şey oynatılmıyor.<br>Ara sekmesinden film ya da kanal seçebilirsin.</div>';setPP(false);return}
   const badge=p.live&&!p.duration?'<span class="badge b-live">● Canlı</span>':p.isPlaying?'<span class="badge b-play">▶ Oynatılıyor</span>':'<span class="badge b-pause">❚❚ Duraklatıldı</span>';

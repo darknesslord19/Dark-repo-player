@@ -149,7 +149,8 @@ fun HomeScreen() {
     var error by remember(catalogKey) { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(catalogKey, api) {
+    var retry by remember { mutableStateOf(0) }
+    LaunchedEffect(catalogKey, api, retry) {
         if (Nav.homeCache[catalogKey] != null) { rows = Nav.homeCache[catalogKey]; return@LaunchedEffect }
         if (isNuvio && selected != "nuvio:*" && NuvioRepoManager.repos.none { "nuvio:" + it.url == selected }) {
             Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect
@@ -184,20 +185,31 @@ fun HomeScreen() {
         if (selected.startsWith("catalog:") && catalog == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
         if (catalog != null) {
             rows = null; error = null
-            val result = kotlinx.coroutines.coroutineScope {
-                catalog.catalogs.map { c ->
-                    async {
-                        runCatching { CatalogManager.items(catalog, c) }.onFailure { AppLog.e("Katalog ${c.name}", it) }.getOrNull()
-                            ?.takeIf { it.isNotEmpty() }?.let { first ->
-                                val title = c.name + " · " + if (c.type == "series") "Diziler" else if (c.type == "movie") "Filmler" else c.type
-                                UiRow(title, first.map { it.toCard() }) { page ->
-                                    CatalogManager.items(catalog, c, skip = (page - 1) * first.size).map { it.toCard() }
-                                }
+            // Her katalog ayrı yüklenir; gelen raf hemen görünür, yavaş olanlar diğerlerini bekletmez
+            val done = java.util.Collections.synchronizedList(mutableListOf<Pair<Int, UiRow>>())
+            var firstError: Throwable? = null
+            kotlinx.coroutines.coroutineScope {
+                catalog.catalogs.forEachIndexed { idx, c ->
+                    launch {
+                        val list = try {
+                            kotlinx.coroutines.withTimeout(25_000) { CatalogManager.items(catalog, c) }
+                        } catch (t: Throwable) {
+                            if (t is kotlinx.coroutines.CancellationException && t !is kotlinx.coroutines.TimeoutCancellationException) throw t
+                            AppLog.e("Katalog ${c.name} (${c.type})", t); if (firstError == null) firstError = t; null
+                        }
+                        if (!list.isNullOrEmpty()) {
+                            val title = c.name + " · " + if (c.type == "series") "Diziler" else if (c.type == "movie") "Filmler" else c.type
+                            done += idx to UiRow(title, list.map { it.toCard() }) { page ->
+                                CatalogManager.items(catalog, c, skip = (page - 1) * list.size).map { it.toCard() }
                             }
+                            rows = done.toList().sortedBy { it.first }.map { it.second }
+                        }
                     }
-                }.mapNotNull { it.await() }
+                }
             }
-            Nav.homeCache[catalogKey] = result
+            val result = done.toList().sortedBy { it.first }.map { it.second }
+            if (result.isNotEmpty()) Nav.homeCache[catalogKey] = result
+            else error = "Katalog yanıt vermedi: " + (firstError?.let { AppLog.describe(it) } ?: "içerik yok")
             rows = result
             return@LaunchedEffect
         }
@@ -217,9 +229,10 @@ fun HomeScreen() {
                     UiRow(r.title, r.items.map { it.toCard() }) { page -> CsApi.mainPageMore(api, r, page).map { it.toCard() } }
                 }
             }
-            Nav.homeCache[catalogKey] = result
+            if (result.isNotEmpty()) Nav.homeCache[catalogKey] = result
             rows = result
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppLog.e("Ana sayfa yüklenemedi ($catalogKey)", e)
             error = AppLog.describe(e)
             rows = emptyList()
@@ -245,7 +258,12 @@ fun HomeScreen() {
             item { ContinueWatchingRow() }
             when {
                 r == null -> item { Loading() }
-                error != null -> item { Message("Yüklenemedi: $error") }
+                error != null -> item {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Message("Yüklenemedi: $error")
+                        androidx.compose.material3.Button(onClick = { Nav.homeCache.remove(catalogKey); retry++ }) { Text("Yeniden dene") }
+                    }
+                }
                 r.isEmpty() -> item {
                     Message(if (api == null) "Katalog boş. TMDB anahtarını Ayarlar'dan kontrol et." else "Bu kaynağın ana sayfası boş.")
                 }

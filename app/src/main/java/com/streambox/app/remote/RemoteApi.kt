@@ -113,6 +113,7 @@ object RemoteApi {
             .put("maxVolume", a.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
             .put("muted", a.isStreamMute(AudioManager.STREAM_MUSIC))
             .put("profile", com.streambox.app.Profiles.current.name)
+            .put("fullControl", RemoteAccessibilityService.instance != null)
         val p = player()
         if (p != null) onMain {
             val ex = p.player
@@ -141,21 +142,55 @@ object RemoteApi {
 
     private fun key(ctx: Context, code: String) {
         val a = audio(ctx)
+        val inApp = ActivityTracker.foreground
+        val a11y = RemoteAccessibilityService.instance
         when (code) {
             "volup" -> a.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
             "voldown" -> a.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
             "mute" -> a.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
-            "home" -> onMain { player()?.finish(); Nav.tab(Route.Home) }
-            "playpause" -> onMain { player()?.togglePlay() ?: send(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }
-            "ff" -> onMain { player()?.seekBy(10_000) }
-            "rew" -> onMain { player()?.seekBy(-10_000) }
-            "chup", "chdown" -> onMain {
+            "home" -> if (!inApp && a11y != null) a11y.perform("home") else front(ctx) { Nav.tab(Route.Home) }
+            "playpause", "ff", "rew" -> {
                 val p = player()
-                if (p != null) p.playIndex((p.ui.index + if (code == "chup") -1 else 1).mod(p.items.size))
-                else send(if (code == "chup") KeyEvent.KEYCODE_PAGE_UP else KeyEvent.KEYCODE_PAGE_DOWN)
+                if (p != null) onMain { when (code) { "ff" -> p.seekBy(10_000); "rew" -> p.seekBy(-10_000); else -> p.togglePlay() } }
+                else media(a, when (code) {
+                    "ff" -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD; "rew" -> KeyEvent.KEYCODE_MEDIA_REWIND
+                    else -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+                })
             }
-            else -> keyMap[code]?.let { k -> onMain { send(k) } }
+            "chup", "chdown" -> {
+                val p = player()
+                if (p != null) onMain { p.playIndex((p.ui.index + if (code == "chup") -1 else 1).mod(p.items.size)) }
+                else if (inApp) inject(if (code == "chup") KeyEvent.KEYCODE_CHANNEL_UP else KeyEvent.KEYCODE_CHANNEL_DOWN)
+                else media(a, if (code == "chup") KeyEvent.KEYCODE_MEDIA_PREVIOUS else KeyEvent.KEYCODE_MEDIA_NEXT)
+            }
+            else -> {
+                val k = keyMap[code] ?: return
+                // Uygulama öndeyse gerçek tuş basışı (odak, geri, OK her ekranda çalışır);
+                // değilse erişilebilirlik hizmetiyle tüm cihazda.
+                val done = inApp && inject(k)
+                if (!done) {
+                    if (a11y?.perform(code) != true && !inApp) com.streambox.app.AppLog.i("Kumanda: uygulama dışı kontrol için erişilebilirlik hizmetini aç")
+                }
+            }
         }
+    }
+
+    private val instrumentation by lazy { android.app.Instrumentation() }
+
+    /** Kendi penceremize gerçek tuş basışı gönderir (ana iş parçacığı dışında çalışmalı). */
+    private fun inject(code: Int): Boolean = runCatching {
+        if (Looper.myLooper() == Looper.getMainLooper()) error("main")
+        instrumentation.sendKeyDownUpSync(code)
+        true
+    }.getOrElse {
+        // Yedek yol: öndeki etkinliğe doğrudan ilet
+        onMain { send(code) } != null
+    }
+
+    private fun media(a: AudioManager, code: Int) {
+        val now = SystemClock.uptimeMillis()
+        a.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
+        a.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0))
     }
 
     /** Öndeki ekrana tuş basışı gönderir (kumandanın tuşuna basılmış gibi). */

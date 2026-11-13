@@ -54,10 +54,12 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
 /** Öndeki etkinliği izler (telefon kumandası tuşları buraya gönderilir). */
 object ActivityTracker : android.app.Application.ActivityLifecycleCallbacks {
     @Volatile var top: java.lang.ref.WeakReference<android.app.Activity>? = null
-    override fun onActivityResumed(a: android.app.Activity) { top = java.lang.ref.WeakReference(a) }
+    /** Uygulamanın bir ekranı şu an önde mi. */
+    @Volatile var foreground = false
+    override fun onActivityResumed(a: android.app.Activity) { top = java.lang.ref.WeakReference(a); foreground = true }
     override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
     override fun onActivityStarted(a: android.app.Activity) {}
-    override fun onActivityPaused(a: android.app.Activity) {}
+    override fun onActivityPaused(a: android.app.Activity) { if (top?.get() === a) foreground = false }
     override fun onActivityStopped(a: android.app.Activity) {}
     override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
     override fun onActivityDestroyed(a: android.app.Activity) { if (top?.get() === a) top = null }
