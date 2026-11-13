@@ -1,5 +1,6 @@
 package com.streambox.app
 
+import kotlinx.coroutines.async
 import org.json.JSONObject
 import java.net.URLEncoder
 
@@ -54,16 +55,36 @@ object Tmdb {
         return (0 until arr.length()).mapNotNull { parse(arr.getJSONObject(it), type) }
     }
 
-    /** Ana sayfa rafları. */
-    suspend fun home(): List<Pair<String, List<TmdbItem>>> = listOf(
-        "Trend filmler" to list("/trending/movie/week", "movie"),
-        "Trend diziler" to list("/trending/tv/week", "tv"),
-        "Popüler filmler" to list("/movie/popular", "movie"),
-        "Popüler diziler" to list("/tv/popular", "tv"),
-        "En iyi filmler" to list("/movie/top_rated", "movie"),
-        "Türk dizileri" to list("/discover/tv", "tv", mapOf("with_original_language" to "tr", "sort_by" to "popularity.desc")),
-        "Türk filmleri" to list("/discover/movie", "movie", mapOf("with_original_language" to "tr", "sort_by" to "popularity.desc")),
-    ).filter { it.second.isNotEmpty() }
+    /** Bir raf: başlık + ilk sayfa + sonraki sayfaları getirmek için yol bilgisi. */
+    data class Shelf(val title: String, val items: List<TmdbItem>, val path: String, val type: String?, val params: Map<String, String>)
+
+    private val shelves = listOf(
+        Triple("Trend filmler", "/trending/movie/week", "movie") to emptyMap<String, String>(),
+        Triple("Trend diziler", "/trending/tv/week", "tv") to emptyMap(),
+        Triple("Popüler filmler", "/movie/popular", "movie") to emptyMap(),
+        Triple("Popüler diziler", "/tv/popular", "tv") to emptyMap(),
+        Triple("Türk dizileri", "/discover/tv", "tv") to mapOf("with_original_language" to "tr", "sort_by" to "popularity.desc"),
+        Triple("Türk filmleri", "/discover/movie", "movie") to mapOf("with_original_language" to "tr", "sort_by" to "popularity.desc"),
+        Triple("En iyi filmler", "/movie/top_rated", "movie") to emptyMap(),
+        Triple("En iyi diziler", "/tv/top_rated", "tv") to emptyMap(),
+        Triple("Animasyon", "/discover/movie", "movie") to mapOf("with_genres" to "16", "sort_by" to "popularity.desc"),
+        Triple("Anime", "/discover/tv", "tv") to mapOf("with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc"),
+        Triple("Kore dizileri", "/discover/tv", "tv") to mapOf("with_original_language" to "ko", "sort_by" to "popularity.desc"),
+        Triple("Belgeseller", "/discover/movie", "movie") to mapOf("with_genres" to "99", "sort_by" to "popularity.desc"),
+    )
+
+    /** Ana sayfa rafları (paralel yüklenir). */
+    suspend fun home(): List<Shelf> = kotlinx.coroutines.coroutineScope {
+        shelves.map { (t, params) ->
+            async {
+                val (title, path, type) = t
+                runCatching { Shelf(title, list(path, type, params), path, type, params) }.getOrNull()
+            }
+        }.mapNotNull { it.await() }.filter { it.items.isNotEmpty() }
+    }
+
+    /** Bir rafın belirli sayfası. */
+    suspend fun page(shelf: Shelf, page: Int): List<TmdbItem> = list(shelf.path, shelf.type, shelf.params + ("page" to page.toString()))
 
     suspend fun search(query: String): List<TmdbItem> = list("/search/multi", null, mapOf("query" to query))
 

@@ -21,6 +21,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +51,9 @@ val Bg = Color(0xFF0F1115)
 val Panel = Color(0xFF171A21)
 val Muted = Color(0xFF9AA0A6)
 
+/** Listelerin altında yüzen menüye yer bırakmak için boşluk. */
+val BottomSpace = 120.dp
+
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
@@ -58,8 +65,12 @@ fun AppTheme(content: @Composable () -> Unit) {
 }
 
 /** Ekranda gösterilecek afiş kartı. */
-data class UiCard(val key: String, val title: String, val image: String?, val subtitle: String? = null, val onClick: () -> Unit)
-data class UiRow(val title: String, val cards: List<UiCard>)
+data class UiCard(
+    val key: String, val title: String, val image: String?, val subtitle: String? = null,
+    val backdrop: String? = null, val overview: String? = null, val onClick: () -> Unit,
+)
+/** Afiş rafı. [more] verilirse "Tümü" ile kategori sayfası açılır (sayfa numarası → kartlar). */
+data class UiRow(val title: String, val cards: List<UiCard>, val more: (suspend (Int) -> List<UiCard>)? = null)
 
 /** Dokunma ve kumanda (D-pad) ile seçilebilen afiş. Odaklanınca büyür ve çerçevelenir. */
 @Composable
@@ -109,7 +120,7 @@ fun PosterCard(card: UiCard, width: Dp = 118.dp, ratio: Float = 2f / 3f, modifie
 @Composable
 fun PosterRow(row: UiRow) {
     Column(Modifier.padding(vertical = 6.dp)) {
-        Text(row.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))
+        RowHeader(row)
         LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(row.cards) { PosterCard(it) }
         }
@@ -132,4 +143,29 @@ fun Message(text: String) {
 @Composable
 fun SectionTitle(text: String) {
     Text(text, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp))
+}
+
+/** Raf başlığı: tıklanınca (ya da "Tümü"ne basınca) kategorinin tamamı açılır. */
+@Composable
+fun RowHeader(row: UiRow) {
+    val src = remember { MutableInteractionSource() }
+    val focused by src.collectIsFocusedAsState()
+    val open = { Nav.go(Route.Category(row.title, row.cards, row.more)) }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(row.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { open() })
+        Row(
+            Modifier.clip(RoundedCornerShape(50))
+                .background(if (focused) Accent else Color(0xFF1F232C))
+                .clickable(interactionSource = src, indication = LocalIndication.current) { open() }
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Tümü", fontSize = 12.sp, color = Color.White)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        }
+    }
 }

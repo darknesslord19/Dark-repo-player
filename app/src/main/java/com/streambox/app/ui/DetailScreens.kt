@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -138,9 +139,12 @@ fun StreamsDialog(title: String, options: List<StreamOption>, status: String?, b
                 if (status != null) Text(status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 6.dp))
                 if (!busy && options.isEmpty()) Text("Yayın bulunamadı.", color = Muted)
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(options) { o ->
+                    itemsIndexed(options) { i, o ->
                         EpisodeRow(o.label, listOfNotNull(o.source, o.detail).joinToString(" · "), null) {
-                            PlayerActivity.start(context, o.item)
+                            val all = options.map { op ->
+                                op.item.copy(label = listOfNotNull(op.source, op.label, op.detail).distinct().joinToString(" · "))
+                            }
+                            PlayerActivity.start(context, all, i)
                         }
                     }
                 }
@@ -198,7 +202,7 @@ fun TmdbDetailScreen(item: TmdbItem) {
         busy = false
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
             val d = details
             val meta = listOfNotNull(
@@ -294,7 +298,7 @@ fun CsDetailScreen(card: CsCard) {
         busy = false
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         val d = details
         when {
             failed != null -> item { Message("Açılamadı: $failed") }

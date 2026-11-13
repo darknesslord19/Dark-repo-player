@@ -137,6 +137,15 @@ object NuvioRepoManager {
         if (i >= 0) { scrapers[i] = s.copy(enabled = enabled); save() }
     }
 
+    /** Bir repodaki (ya da [repoUrl] null ise tüm) eklentileri açar/kapatır. */
+    fun setAllEnabled(repoUrl: String?, enabled: Boolean) {
+        for (i in scrapers.indices) {
+            val s = scrapers[i]
+            if (repoUrl == null || s.repoUrl == repoUrl) scrapers[i] = s.copy(enabled = enabled)
+        }
+        save()
+    }
+
     private suspend fun code(s: NuvioScraper): String {
         val f = codeFile(s)
         if (f.exists() && f.length() > 0) return f.readText()

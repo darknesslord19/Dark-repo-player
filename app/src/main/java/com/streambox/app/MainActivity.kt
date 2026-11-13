@@ -5,29 +5,28 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import com.streambox.app.ui.SideNavBar
+import com.streambox.app.ui.NavTab
+import com.streambox.app.ui.FloatingNavBar
+import com.streambox.app.ui.CategoryScreen
+import com.streambox.app.ui.Bg
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.background
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.streambox.app.plugins.RepoManager
@@ -38,26 +37,24 @@ import com.streambox.app.ui.HomeScreen
 import com.streambox.app.ui.IptvListScreen
 import com.streambox.app.ui.IptvScreen
 import com.streambox.app.ui.Nav
-import com.streambox.app.ui.Panel
 import com.streambox.app.ui.Route
 import com.streambox.app.ui.SearchScreen
 import com.streambox.app.ui.SettingsScreen
 import com.streambox.app.ui.TmdbDetailScreen
 import kotlinx.coroutines.launch
 
-private data class Tab(val route: Route, val label: String, val icon: ImageVector)
-
 private val tabs = listOf(
-    Tab(Route.Home, "Ana Sayfa", Icons.Default.Home),
-    Tab(Route.Search, "Ara", Icons.Default.Search),
-    Tab(Route.Iptv, "IPTV", Icons.Default.LiveTv),
-    Tab(Route.Extensions, "Eklentiler", Icons.Default.Extension),
-    Tab(Route.Settings, "Ayarlar", Icons.Default.Settings),
+    NavTab(Route.Home, "Ana Sayfa", Icons.Default.Home),
+    NavTab(Route.Search, "Ara", Icons.Default.Search),
+    NavTab(Route.Iptv, "Canlı TV", Icons.Default.LiveTv),
+    NavTab(Route.Extensions, "Eklentiler", Icons.Default.Extension),
+    NavTab(Route.Settings, "Ayarlar", Icons.Default.Settings),
 )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         handleIntent(intent)
         setContent { AppTheme { Root() } }
     }
@@ -97,7 +94,8 @@ private fun Root() {
     val tv = isTv()
 
     val content: @Composable (Modifier) -> Unit = { m ->
-        Box(m) {
+        // Ana sayfa vitrini durum çubuğunun altına uzanır; diğer ekranlar onun altından başlar
+        Box(if (route == Route.Home) m else m.statusBarsPadding()) {
             when (route) {
                 Route.Home -> HomeScreen()
                 Route.Search -> SearchScreen()
@@ -107,34 +105,20 @@ private fun Root() {
                 is Route.TmdbDetail -> TmdbDetailScreen(route.item)
                 is Route.CsDetail -> CsDetailScreen(route.card)
                 is Route.IptvList -> IptvListScreen(route.playlist)
+                is Route.Category -> CategoryScreen(route)
             }
         }
     }
 
     if (tv) {
-        Row(Modifier.fillMaxSize().safeDrawingPadding()) {
-            NavigationRail(containerColor = Panel) {
-                tabs.forEach { t ->
-                    NavigationRailItem(
-                        selected = rootTab == t.route, onClick = { Nav.tab(t.route) },
-                        icon = { Icon(t.icon, t.label) }, label = { Text(t.label) }
-                    )
-                }
-            }
+        Row(Modifier.fillMaxSize().background(Bg)) {
+            Box(Modifier.statusBarsPadding()) { SideNavBar(tabs, rootTab) { Nav.tab(it) } }
             content(Modifier.weight(1f).fillMaxSize())
         }
     } else {
-        Scaffold(
-            bottomBar = {
-                NavigationBar(containerColor = Panel) {
-                    tabs.forEach { t ->
-                        NavigationBarItem(
-                            selected = rootTab == t.route, onClick = { Nav.tab(t.route) },
-                            icon = { Icon(t.icon, t.label) }, label = { Text(t.label) }
-                        )
-                    }
-                }
-            }
-        ) { pad -> content(Modifier.fillMaxSize().padding(pad)) }
+        Box(Modifier.fillMaxSize().background(Bg)) {
+            content(Modifier.fillMaxSize())
+            FloatingNavBar(tabs, rootTab, { Nav.tab(it) }, Modifier.align(Alignment.BottomCenter))
+        }
     }
 }

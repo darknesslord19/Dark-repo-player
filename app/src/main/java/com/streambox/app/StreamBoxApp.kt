@@ -12,10 +12,17 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class StreamBoxApp : Application() {
+    companion object {
+        /** Uygulama bağlamı (WebView gerektiren uyumluluk sınıfları için). */
+        @Volatile var instance: StreamBoxApp? = null
+            private set
+    }
+
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Settings.init(this)
         RepoManager.init(this)
         PluginManager.init(this)

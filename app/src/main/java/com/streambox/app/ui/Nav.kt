@@ -17,6 +17,8 @@ sealed interface Route {
     data class TmdbDetail(val item: TmdbItem) : Route
     data class CsDetail(val card: CsCard) : Route
     data class IptvList(val playlist: Playlist) : Route
+    /** Bir rafın tamamı; [load] sayfa numarasıyla sonraki kartları getirir (null: sadece eldekiler). */
+    data class Category(val title: String, val initial: List<UiCard>, val load: (suspend (Int) -> List<UiCard>)?) : Route
 }
 
 object Nav {

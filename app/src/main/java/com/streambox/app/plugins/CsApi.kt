@@ -20,7 +20,8 @@ import kotlinx.coroutines.withContext
  */
 
 data class CsCard(val api: MainAPI, val name: String, val url: String, val poster: String?)
-data class CsRow(val title: String, val items: List<CsCard>)
+/** Bir ana sayfa rafı; [reqName]/[reqData] sonraki sayfaları getirmek için. */
+data class CsRow(val title: String, val items: List<CsCard>, val reqName: String = "", val reqData: String = "", val horizontal: Boolean = false)
 data class CsEpisode(val data: String, val title: String, val season: Int?, val episode: Int?, val poster: String?)
 data class CsDetails(
     val title: String,
@@ -47,10 +48,17 @@ object CsApi {
                 api.getMainPage(1, MainPageRequest(mp.name, mp.data, mp.horizontalImages))
             }.getOrNull() ?: continue
             for (list in res.items) {
-                if (list.list.isNotEmpty()) rows += CsRow(list.name, list.list.map { card(api, it) })
+                if (list.list.isNotEmpty()) rows += CsRow(list.name, list.list.map { card(api, it) }, mp.name, mp.data, mp.horizontalImages)
             }
         }
         rows
+    }
+
+    /** Bir rafın [page]. sayfası. */
+    suspend fun mainPageMore(api: MainAPI, row: CsRow, page: Int): List<CsCard> = withContext(Dispatchers.IO) {
+        val res = api.getMainPage(page, MainPageRequest(row.reqName, row.reqData, row.horizontal)) ?: return@withContext emptyList()
+        val list = res.items.firstOrNull { it.name == row.title } ?: res.items.firstOrNull() ?: return@withContext emptyList()
+        list.list.map { card(api, it) }
     }
 
     suspend fun search(api: MainAPI, query: String): List<CsCard> = withContext(Dispatchers.IO) {

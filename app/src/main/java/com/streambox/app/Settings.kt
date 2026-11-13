@@ -17,16 +17,25 @@ object Settings {
         private set
     var language by mutableStateOf("tr-TR")
         private set
+    /** Ana sayfada seçili kaynak (kaynak adı ya da "__tmdb__"). */
+    var homeSource by mutableStateOf("__tmdb__")
+        private set
 
     fun init(context: Context) {
         appContext = context.applicationContext
         tmdbKey = prefs.getString("tmdbKey", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_TMDB_KEY
         language = prefs.getString("language", "tr-TR") ?: "tr-TR"
+        homeSource = prefs.getString("homeSource", "__tmdb__") ?: "__tmdb__"
     }
 
     fun updateTmdbKey(v: String) {
         tmdbKey = v.trim().ifBlank { DEFAULT_TMDB_KEY }
         prefs.edit().putString("tmdbKey", tmdbKey).apply()
+    }
+
+    fun updateHomeSource(v: String) {
+        homeSource = v
+        prefs.edit().putString("homeSource", v).apply()
     }
 
     fun updateLanguage(v: String) {

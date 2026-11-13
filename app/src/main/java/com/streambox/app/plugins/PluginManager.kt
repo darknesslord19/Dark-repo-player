@@ -16,7 +16,10 @@ import com.streambox.app.AppLog
 import com.streambox.app.Net
 import com.streambox.app.onMain
 import dalvik.system.PathClassLoader
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,7 +35,11 @@ data class InstalledPlugin(
     val sourceUrl: String?,
     val repoUrl: String?,
     val enabled: Boolean = true,
+    val iconUrl: String? = null,
 )
+
+/** Toplu kurulum ilerlemesi. */
+data class BulkProgress(val done: Int, val total: Int, val current: String)
 
 /** Bir plugin'in bu oturumdaki yükleme sonucu. */
 data class LoadResult(val ok: Boolean, val message: String, val providers: List<String> = emptyList())
@@ -48,6 +55,33 @@ object PluginManager {
 
     /** Kurulumdan sonra uygulamayı yeniden başlatmak gerekiyor mu? */
     var needsRestart by mutableStateOf(false)
+
+    /** Toplu kurulum sürüyorsa ilerleme bilgisi. */
+    var bulk by mutableStateOf<BulkProgress?>(null)
+    private var bulkJob: Job? = null
+
+    /** Listedeki kurulu olmayan ya da eski sürümdeki eklentileri sırayla kurar. */
+    fun installAll(context: Context, scope: CoroutineScope, list: List<RepoPlugin>) {
+        if (bulkJob?.isActive == true) return
+        val todo = list.filter { rp -> rp.status != 0 && (find(rp.internalName)?.version ?: -1) < rp.version }
+        if (todo.isEmpty()) return
+        bulkJob = scope.launch {
+            var failed = 0
+            todo.forEachIndexed { i, rp ->
+                onMain { bulk = BulkProgress(i, todo.size, rp.name) }
+                try { install(context, rp) } catch (e: Exception) { failed++; AppLog.e("Toplu kurulum: ${rp.name}", e) }
+            }
+            AppLog.i("Toplu kurulum bitti: ${todo.size - failed}/${todo.size}")
+            onMain { bulk = null }
+        }
+    }
+
+    fun cancelBulk() { bulkJob?.cancel(); bulk = null }
+
+    /** Verilen eklentilerin hepsini kaldırır. */
+    fun uninstallAll(context: Context, list: List<InstalledPlugin>) {
+        list.toList().forEach { uninstall(context, it) }
+    }
 
     fun dir(context: Context) = File(context.filesDir, "plugins").apply { mkdirs() }
 
@@ -65,6 +99,7 @@ object PluginManager {
                 sourceUrl = o.optStringOrNull("sourceUrl"),
                 repoUrl = o.optStringOrNull("repoUrl"),
                 enabled = o.optBoolean("enabled", true),
+                iconUrl = o.optStringOrNull("iconUrl"),
             )
         }
     }
@@ -75,7 +110,7 @@ object PluginManager {
             arr.put(JSONObject().apply {
                 put("internalName", p.internalName); put("name", p.name); put("version", p.version)
                 put("fileName", p.fileName); put("sourceUrl", p.sourceUrl); put("repoUrl", p.repoUrl)
-                put("enabled", p.enabled)
+                put("enabled", p.enabled); put("iconUrl", p.iconUrl)
             })
         }
         context.getSharedPreferences(PREFS, 0).edit().putString("installed", arr.toString()).apply()
@@ -166,7 +201,7 @@ object PluginManager {
         val wasLoaded = loadedFiles.contains(target.absolutePath)
         AppLog.i("İndiriliyor: ${rp.name} v${rp.version}")
         Net.download(rp.url, target)
-        val entry = InstalledPlugin(rp.internalName, rp.name, rp.version, fileName, rp.url, rp.repoUrl)
+        val entry = InstalledPlugin(rp.internalName, rp.name, rp.version, fileName, rp.url, rp.repoUrl, iconUrl = rp.iconUrl)
         onMain {
             installed.removeAll { it.internalName == rp.internalName }
             installed += entry

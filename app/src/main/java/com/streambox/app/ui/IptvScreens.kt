@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -61,7 +62,7 @@ fun IptvScreen() {
         }
     }
 
-    LazyVerticalGrid(columns = GridCells.Adaptive(150.dp), contentPadding = PaddingValues(12.dp),
+    LazyVerticalGrid(columns = GridCells.Adaptive(150.dp), contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, BottomSpace),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -132,12 +133,13 @@ fun IptvListScreen(playlist: Playlist) {
         if (all == null) Loading()
         else if (visible.isEmpty()) Message("Kanal yok")
         else LazyVerticalGrid(
-            columns = GridCells.Adaptive(118.dp), contentPadding = PaddingValues(12.dp),
+            columns = GridCells.Adaptive(118.dp), contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, BottomSpace),
             horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(visible) { ch ->
+            itemsIndexed(visible) { i, ch ->
                 PosterCard(UiCard(ch.url, ch.name, ch.logo, ch.group) {
-                    PlayerActivity.start(context, PlayItem(ch.name, ch.url, ch.headers, live = true))
+                    val list = visible.map { PlayItem(it.name, it.url, it.headers, live = true, label = it.name) }
+                    PlayerActivity.start(context, list, i)
                 }, ratio = 1f)
             }
         }

@@ -33,7 +33,7 @@ fun SettingsScreen() {
     var key by remember { mutableStateOf(Settings.tmdbKey) }
     var lang by remember { mutableStateOf(Settings.language) }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
             SectionTitle("TMDB")
             OutlinedTextField(key, { key = it }, singleLine = true, label = { Text("TMDB API anahtarı") },

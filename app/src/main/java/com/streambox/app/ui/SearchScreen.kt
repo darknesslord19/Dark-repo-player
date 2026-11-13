@@ -68,7 +68,7 @@ fun SearchScreen() {
         Nav.pendingQuery?.let { query = it; Nav.pendingQuery = null; run(it) }
     }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
