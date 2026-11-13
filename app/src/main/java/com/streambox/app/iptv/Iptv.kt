@@ -134,7 +134,7 @@ object IptvStore {
     }
 
     suspend fun addUrl(name: String, url: String): Playlist {
-        val text = Net.getText(url.trim())
+        val text = Net.getText(url.trim(), mapOf("User-Agent" to com.streambox.app.Settings.iptvUserAgent))
         if (M3u.parse(text).isEmpty()) throw IllegalArgumentException("Listede kanal bulunamadı")
         val p = Playlist(System.currentTimeMillis().toString(36), name.ifBlank { Uri.parse(url).host ?: "Liste" }, url.trim())
         withContext(Dispatchers.IO) { File(dir(), p.id + ".m3u").writeText(text) }
@@ -155,8 +155,23 @@ object IptvStore {
     /** Kanalları getirir; adresli listeler [refresh] ile yeniden indirilir. */
     suspend fun channels(p: Playlist, refresh: Boolean = false): List<Channel> = withContext(Dispatchers.IO) {
         val f = File(dir(), p.id + ".m3u")
-        if ((refresh || !f.exists()) && p.url != null) runCatching { f.writeText(Net.getText(p.url)) }
+        if ((refresh || !f.exists()) && p.url != null) runCatching {
+            f.writeText(Net.getText(p.url, mapOf("User-Agent" to com.streambox.app.Settings.iptvUserAgent)))
+        }
         if (f.exists()) M3u.parse(f.readText()) else emptyList()
+    }
+
+    fun rename(p: Playlist, name: String) {
+        val i = playlists.indexOf(p)
+        if (i >= 0 && name.isNotBlank()) { playlists[i] = p.copy(name = name.trim()); save() }
+    }
+
+    /** Xtream Codes bilgilerinden M3U adresi üretir. */
+    fun xtreamUrl(server: String, user: String, pass: String): String {
+        var base = server.trim().removeSuffix("/")
+        if (!base.startsWith("http")) base = "http://$base"
+        fun enc(v: String) = java.net.URLEncoder.encode(v.trim(), "UTF-8")
+        return "$base/get.php?username=${enc(user)}&password=${enc(pass)}&type=m3u_plus&output=ts"
     }
 
     fun remove(p: Playlist) {

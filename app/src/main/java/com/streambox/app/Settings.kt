@@ -20,6 +20,26 @@ object Settings {
     /** DNS over HTTPS sağlayıcısı (DnsProvider adı). */
     var dns by mutableStateOf("CLOUDFLARE")
         private set
+    /** Tercih edilen altyazı dili ("" = kapalı). */
+    var subLang by mutableStateOf("tr")
+        private set
+    /** Tercih edilen ses dili ("" = otomatik). */
+    var audioLang by mutableStateOf("tr")
+        private set
+    /** Varsayılan ekran oranı: 0 sığdır, 4 yakınlaştır, 3 uzat (AspectRatioFrameLayout değerleri). */
+    var resizeMode by mutableStateOf(0)
+        private set
+    /** IPTV için tarayıcı kimliği: VLC, BROWSER, OKHTTP. */
+    var iptvUa by mutableStateOf("VLC")
+        private set
+
+    val iptvUserAgent: String
+        get() = when (iptvUa) {
+            "BROWSER" -> Net.USER_AGENT
+            "OKHTTP" -> "okhttp/4.12.0"
+            else -> "VLC/3.0.20 LibVLC/3.0.20"
+        }
+
     /** Ana sayfada seçili kaynak (kaynak adı ya da "__tmdb__"). */
     var homeSource by mutableStateOf("__tmdb__")
         private set
@@ -30,12 +50,21 @@ object Settings {
         language = prefs.getString("language", "tr-TR") ?: "tr-TR"
         homeSource = prefs.getString("homeSource", "__tmdb__") ?: "__tmdb__"
         dns = prefs.getString("dns", "CLOUDFLARE") ?: "CLOUDFLARE"
+        subLang = prefs.getString("subLang", "tr") ?: "tr"
+        audioLang = prefs.getString("audioLang", "tr") ?: "tr"
+        resizeMode = prefs.getInt("resizeMode", 0)
+        iptvUa = prefs.getString("iptvUa", "VLC") ?: "VLC"
     }
 
     fun updateTmdbKey(v: String) {
         tmdbKey = v.trim().ifBlank { DEFAULT_TMDB_KEY }
         prefs.edit().putString("tmdbKey", tmdbKey).apply()
     }
+
+    fun updateSubLang(v: String) { subLang = v; prefs.edit().putString("subLang", v).apply() }
+    fun updateAudioLang(v: String) { audioLang = v; prefs.edit().putString("audioLang", v).apply() }
+    fun updateResizeMode(v: Int) { resizeMode = v; prefs.edit().putInt("resizeMode", v).apply() }
+    fun updateIptvUa(v: String) { iptvUa = v; prefs.edit().putString("iptvUa", v).apply() }
 
     fun updateDns(v: String) {
         dns = v

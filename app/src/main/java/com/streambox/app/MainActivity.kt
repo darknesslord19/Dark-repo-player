@@ -5,6 +5,13 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import com.streambox.app.ui.isWide
+import com.streambox.app.ui.SettingsPageScreen
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
 import com.streambox.app.ui.SideNavBar
 import com.streambox.app.ui.NavTab
 import com.streambox.app.ui.FloatingNavBar
@@ -106,12 +113,19 @@ private fun Root() {
                 is Route.CsDetail -> CsDetailScreen(route.card)
                 is Route.IptvList -> IptvListScreen(route.playlist)
                 is Route.Category -> CategoryScreen(route)
+                is Route.SettingsPage -> SettingsPageScreen(route.page)
             }
         }
     }
 
-    if (tv) {
-        Row(Modifier.fillMaxSize().background(Bg)) {
+    // Yatay ekranda kanal listesi tam ekran açılır (kendi kategori menüsü var)
+    val immersive = route is Route.IptvList && isWide()
+    val insets = Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.displayCutout))
+
+    if (immersive) {
+        Box(Modifier.fillMaxSize().background(Bg).statusBarsPadding().then(insets)) { content(Modifier.fillMaxSize()) }
+    } else if (tv) {
+        Row(Modifier.fillMaxSize().background(Bg).then(insets)) {
             Box(Modifier.statusBarsPadding()) { SideNavBar(tabs, rootTab) { Nav.tab(it) } }
             content(Modifier.weight(1f).fillMaxSize())
         }

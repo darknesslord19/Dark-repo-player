@@ -130,6 +130,12 @@ class PlayerActivity : ComponentActivity() {
         p.setAudioAttributes(
             AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true
         )
+        // Tercih edilen ses / altyazı dili
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setPreferredAudioLanguage(com.streambox.app.Settings.audioLang.ifBlank { null })
+            .setPreferredTextLanguage(com.streambox.app.Settings.subLang.ifBlank { null })
+            .build()
+        ui.resizeMode = com.streambox.app.Settings.resizeMode
         p.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { ui.playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {
@@ -182,7 +188,8 @@ class PlayerActivity : ComponentActivity() {
         ui.error = null
         ui.buffering = true
         val headers = it.headers.filterKeys { k -> !k.equals("User-Agent", true) }
-        val ua = it.headers.entries.firstOrNull { e -> e.key.equals("User-Agent", true) }?.value ?: Net.USER_AGENT
+        val ua = it.headers.entries.firstOrNull { e -> e.key.equals("User-Agent", true) }?.value
+            ?: if (it.live) com.streambox.app.Settings.iptvUserAgent else Net.USER_AGENT
         val http = OkHttpDataSource.Factory(Net.client).setUserAgent(ua).setDefaultRequestProperties(headers)
         val factory = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http))
 
