@@ -78,9 +78,7 @@ fun FloatingNavBar(tabs: List<NavTab>, selected: Route, onSelect: (Route) -> Uni
                     .clickable { onSelect(tabs.first().route) },
                 contentAlignment = Alignment.Center
             ) {
-                Box(Modifier.size(30.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PlayArrow, "StreamBox", tint = Color.White, modifier = Modifier.size(22.dp))
-                }
+                AppLogo(46.dp)
             }
 
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().padding(start = 6.dp)) {
@@ -167,9 +165,7 @@ fun SideNavBar(tabs: List<NavTab>, selected: Route, onSelect: (Route) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.PlayArrow, null, tint = Color.White)
-        }
+        AppLogo(52.dp)
         tabs.forEach { t ->
             val sel = selected == t.route
             Box(
@@ -178,6 +174,22 @@ fun SideNavBar(tabs: List<NavTab>, selected: Route, onSelect: (Route) -> Unit) {
                     .then(if (sel) Modifier.border(2.dp, Accent, RoundedCornerShape(20.dp)) else Modifier),
                 contentAlignment = Alignment.Center
             ) { NavIcon(t, sel, Modifier.fillMaxSize()) { onSelect(t.route) } }
+        }
+    }
+}
+
+/** Seçili uygulama ikonunu gösterir (Klasik ise mavi oynat dairesi). */
+@Composable
+fun AppLogo(size: androidx.compose.ui.unit.Dp) {
+    val res = com.streambox.app.AppIcon.current.logo
+    if (res != null) {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(res), "StreamBox",
+            modifier = Modifier.size(size).clip(CircleShape)
+        )
+    } else {
+        Box(Modifier.size(size * 0.66f).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.PlayArrow, "StreamBox", tint = Color.White, modifier = Modifier.size(size * 0.45f))
         }
     }
 }

@@ -36,6 +36,7 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         super.onCreate()
         instance = this
         Settings.init(this)
+        AppIcon.init(this)
         RepoManager.init(this)
         PluginManager.init(this)
         NuvioRepoManager.init(this)

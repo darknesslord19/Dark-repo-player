@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.Button
@@ -235,6 +236,11 @@ fun SettingsScreen() {
                     Nav.go(Route.SettingsPage("iptv"))
                 }
             }
+            SettingGroup("Görünüm") {
+                SettingRow(Icons.Default.Palette, Color(0xFFB28CFF), "Uygulama ikonu", com.streambox.app.AppIcon.current.label) {
+                    Nav.go(Route.SettingsPage("icon"))
+                }
+            }
             SettingGroup("Uygulama") {
                 SettingRow(Icons.AutoMirrored.Filled.List, Color(0xFFFF6B6B), "Günlük",
                     "${AppLog.lines.size} kayıt" + if (errors > 0) " · $errors hata" else "") { Nav.go(Route.SettingsPage("log")) }
@@ -266,6 +272,7 @@ fun SettingsPageScreen(page: String) {
         "player" -> PlayerPage()
         "iptv" -> IptvPage()
         "log" -> LogPage()
+        "icon" -> IconPage()
         else -> AboutPage()
     }
 }
@@ -434,6 +441,46 @@ private fun AboutPage() {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Default.ClosedCaption, null, tint = Muted)
                 Text("Sorun bildirmek için Günlük sayfasından kayıtları kopyalayıp gönderebilirsin.", color = Muted, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IconPage() {
+    val context = LocalContext.current
+    SubPage("Uygulama ikonu", "Ana ekrandaki ve uygulama içindeki logo") {
+        Block("İkon seç", "Değişiklik birkaç saniye içinde ana ekrana yansır. Bazı başlatıcılarda kısayolu yeniden eklemen gerekebilir.") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                com.streambox.app.AppIcon.entries.forEach { icon ->
+                    val sel = com.streambox.app.AppIcon.current == icon
+                    val src = remember { MutableInteractionSource() }
+                    val focused by src.collectIsFocusedAsState()
+                    Column(
+                        Modifier.clip(RoundedCornerShape(22.dp))
+                            .background(if (sel) Color(0xFF1B2335) else Color(0xFF1F232B))
+                            .border(2.dp, if (sel || focused) Accent else Color.Transparent, RoundedCornerShape(22.dp))
+                            .clickable(interactionSource = src, indication = LocalIndication.current) {
+                                com.streambox.app.AppIcon.apply(context, icon); toast(context, "İkon: ${icon.label}")
+                            }
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (icon.logo != null) {
+                            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.logo), icon.label,
+                                modifier = Modifier.size(96.dp).clip(RoundedCornerShape(20.dp)))
+                        } else {
+                            Box(Modifier.size(96.dp).clip(RoundedCornerShape(20.dp)).background(Accent), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(52.dp))
+                            }
+                        }
+                        Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (sel) Icon(Icons.Default.CheckCircle, null, tint = Accent, modifier = Modifier.size(18.dp).padding(end = 4.dp))
+                            Text(icon.label, fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
     }
