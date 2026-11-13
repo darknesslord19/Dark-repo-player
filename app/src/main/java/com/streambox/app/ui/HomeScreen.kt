@@ -191,8 +191,8 @@ fun HomeScreen() {
             try {
                 val result = com.streambox.app.sites.SiteManager.rows(site).map { r ->
                     UiRow(r.title, r.items.map { it ->
-                        UiCard("site-" + it.url, it.title, it.poster, it.subtitle, imageHeaders = headers) {
-                            com.streambox.app.sites.SiteBrowserActivity.open(ctx, it.url, it.title, it.poster)
+                        UiCard("site-" + it.url, it.title, it.poster, listOfNotNull(it.rating?.let { r -> "★ $r" }, it.subtitle).joinToString(" · ").ifBlank { null }, imageHeaders = headers) {
+                            com.streambox.app.sites.SiteResolver.open(ctx, site, it)
                         }
                     })
                 }
@@ -281,6 +281,7 @@ fun HomeScreen() {
                 else Spacer(Modifier.statusBarsPadding().height(72.dp))
             }
             item { ContinueWatchingRow() }
+            if (selected.startsWith("site:")) item { SiteShortcuts(selected.removePrefix("site:")) }
             when {
                 r == null -> item { Loading() }
                 error != null -> item {
@@ -573,6 +574,21 @@ private fun SourceRow(title: String, subtitle: String, icon: androidx.compose.ui
             Text(title, fontSize = 16.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1)
+        }
+    }
+}
+
+
+/** Site seçiliyken: katalog görünümü ve menüdeki kategoriler için kısayollar. */
+@Composable
+private fun SiteShortcuts(siteId: String) {
+    val site = com.streambox.app.sites.SiteManager.sites.firstOrNull { it.id == siteId } ?: return
+    var cats by remember(siteId) { mutableStateOf<List<com.streambox.app.sites.SiteCategory>>(emptyList()) }
+    LaunchedEffect(siteId) { cats = runCatching { com.streambox.app.sites.SiteManager.categories(site) }.getOrDefault(emptyList()) }
+    LazyRow(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Chip("▦ Tüm afişler", true) { Nav.go(Route.SiteCatalog(site.id)) } }
+        items(cats.filter { it.group == "Tür" }.take(20) + cats.filter { it.group != "Tür" }.take(10)) { c ->
+            Chip(c.name, false) { Nav.go(Route.SiteCatalog(site.id, c.name, c.url)) }
         }
     }
 }

@@ -128,6 +128,7 @@ private fun Root() {
                 is Route.Category -> CategoryScreen(route)
                 is Route.SettingsPage -> SettingsPageScreen(route.page)
                 is Route.RepoPage -> RepoPageScreen(route)
+                is Route.SiteCatalog -> com.streambox.app.ui.SiteCatalogScreen(route)
             }
         }
     }
@@ -136,6 +137,7 @@ private fun Root() {
     val immersive = route is Route.IptvList && isWide()
     val insets = Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.displayCutout))
 
+    com.streambox.app.ui.SiteResolveOverlay()
     if (immersive) {
         Box(Modifier.fillMaxSize().background(Bg).statusBarsPadding().then(insets)) { content(Modifier.fillMaxSize()) }
     } else if (tv) {

@@ -22,6 +22,8 @@ sealed interface Route {
     /** Ayar alt sayfası: tmdb, dns, player, iptv, log, about. */
     data class SettingsPage(val page: String) : Route
     /** Bir rafın tamamı; [load] sayfa numarasıyla sonraki kartları getirir (null: sadece eldekiler). */
+    /** Sitenin afiş kataloğu: [url] boşsa ana sayfa; kategori seçilince o kategorinin adresi. */
+    data class SiteCatalog(val siteId: String, val title: String? = null, val url: String? = null) : Route
     data class Category(val title: String, val initial: List<UiCard>, val load: (suspend (Int) -> List<UiCard>)?) : Route
 }
 

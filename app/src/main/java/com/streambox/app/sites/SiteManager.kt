@@ -26,12 +26,16 @@ data class Site(
     val icon: String? = null,
     val search: String? = null,
     val onHome: Boolean = true,
+    /** Afişe basınca sayfayı göstermeden videoyu bulup doğrudan oynatıcıyı aç. */
+    val directPlay: Boolean = false,
 ) {
     val host: String get() = runCatching { URI(url).host?.removePrefix("www.") }.getOrNull() ?: url
 }
 
 /** Siteden çekilen afiş. */
-data class SiteItem(val title: String, val url: String, val poster: String?, val subtitle: String? = null)
+data class SiteItem(val title: String, val url: String, val poster: String?, val subtitle: String? = null, val rating: String? = null)
+/** Sitenin menüsündeki kategori (tür, yıl, ülke …). */
+data class SiteCategory(val name: String, val url: String, val group: String)
 data class SiteRow(val title: String, val items: List<SiteItem>)
 
 object SiteManager {
@@ -52,7 +56,7 @@ object SiteManager {
         val arr = JSONArray(prefs.getString("list", "[]"))
         for (i in 0 until arr.length()) arr.getJSONObject(i).let {
             sites += Site(it.getString("id"), it.getString("name"), it.getString("url"), it.optString("icon").ifBlank { null },
-                it.optString("search").ifBlank { null }, it.optBoolean("onHome", true))
+                it.optString("search").ifBlank { null }, it.optBoolean("onHome", true), it.optBoolean("directPlay", false))
         }
         blockRedirects = prefs.getBoolean("blockRedirects", true)
         blockPopups = prefs.getBoolean("blockPopups", true)
@@ -63,7 +67,7 @@ object SiteManager {
         val arr = JSONArray()
         sites.forEach {
             arr.put(JSONObject().put("id", it.id).put("name", it.name).put("url", it.url).put("icon", it.icon ?: "")
-                .put("search", it.search ?: "").put("onHome", it.onHome))
+                .put("search", it.search ?: "").put("onHome", it.onHome).put("directPlay", it.directPlay))
         }
         prefs.edit().putString("list", arr.toString()).putBoolean("blockRedirects", blockRedirects)
             .putBoolean("blockPopups", blockPopups).putBoolean("autoVideo", autoVideo).apply()
@@ -120,7 +124,14 @@ object SiteManager {
     }
 
     /** Statik HTML yetmezse (Cloudflare / JavaScript ile yüklenen siteler) gizli tarayıcıda açıp dener. */
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Document>>()
+
     private suspend fun load(url: String): Document {
+        cache[url]?.let { (t, d) -> if (System.currentTimeMillis() - t < 5 * 60_000) return d }
+        return loadFresh(url).also { cache[url] = System.currentTimeMillis() to it }
+    }
+
+    private suspend fun loadFresh(url: String): Document {
         val first = runCatching { fetch(url) }.getOrNull()
         if (first != null && extract(first).flatMap { it.items }.size >= 6) return first
         val html = SiteRenderer.render(appContext, url)
@@ -184,8 +195,13 @@ object SiteManager {
                     val poster = img?.let { imgSrc(it) } ?: el.selectFirst("[style*=url]")?.let { imgSrc(it) } ?: continue
                     val title = titleOf(el, img) ?: continue
                     seen += href
-                    val sub = el.parent()?.selectFirst("[class*=year], [class*=date], .imdb, [class*=imdb], [class*=rating]")?.text()?.take(20)
-                    rows.getOrPut(section) { mutableListOf() } += SiteItem(title, href, poster, sub?.ifBlank { null })
+                    val card = el.parent() ?: el
+                    val year = (el.selectFirst("[class*=year], [class*=date]") ?: card.selectFirst("[class*=year], [class*=date]"))?.text()
+                        ?.let { Regex("(19|20)\\d{2}").find(it)?.value }
+                    val rating = (el.selectFirst("[class*=imdb], [class*=rating], [class*=puan], [class*=score], [class*=vote]")
+                        ?: card.selectFirst("[class*=imdb], [class*=rating], [class*=puan], [class*=score], [class*=vote]"))?.text()
+                        ?.let { Regex("\\b(10|[0-9])([.,][0-9])?\\b").find(it)?.value?.replace(',', '.') }
+                    rows.getOrPut(section) { mutableListOf() } += SiteItem(title, href, poster, year, rating)
                 }
             }
         }
@@ -194,5 +210,43 @@ object SiteManager {
         val rest = rows.filter { it.value.size < 4 }.flatMap { it.value }
         return if (big.isEmpty()) listOf(SiteRow("Son eklenenler", rest)).filter { it.items.isNotEmpty() }
         else big + (if (rest.size >= 4) listOf(SiteRow("Diğer", rest)) else emptyList())
+    }
+
+    // ------------------------------------------------------------------ katalog görünümü
+
+    private val catGroups = listOf(
+        "Tür" to Regex("(?i)/(tur|turler|tür|genre|genres|kategori|category|categories|film-kategori)/"),
+        "Yıl" to Regex("(?i)(/(yil|year|yillar|release)/|/(19|20)\\d{2}/?$)"),
+        "Ülke" to Regex("(?i)/(ulke|ülke|country|countries)/"),
+        "Platform" to Regex("(?i)/(platform|kanal|network|studio)/"),
+    )
+
+    /** Sitenin menüsündeki tür / yıl / ülke bağlantıları. */
+    suspend fun categories(site: Site): List<SiteCategory> {
+        val doc = load(site.url)
+        val base = site.host
+        val out = linkedMapOf<String, SiteCategory>()
+        for (a in doc.select("a[href]")) {
+            val href = a.absUrl("href").substringBefore('#').trimEnd('/')
+            if (href.isBlank() || href in out) continue
+            val host = runCatching { URI(href).host?.removePrefix("www.") }.getOrNull()
+            if (host != base) continue
+            val name = a.text().trim().replace(Regex("\\s*\\(\\d+\\)$"), "")
+            if (name.length !in 2..28 || a.selectFirst("img") != null) continue
+            val group = catGroups.firstOrNull { it.second.containsMatchIn("$href/") }?.first ?: continue
+            out[href] = SiteCategory(name, href, group)
+        }
+        return out.values.toList()
+    }
+
+    /** Liste sayfası: afişler + sonraki sayfanın adresi. */
+    suspend fun listing(url: String): Pair<List<SiteItem>, String?> {
+        val doc = load(url)
+        val items = extract(doc).flatMap { it.items }.distinctBy { it.url }
+        val next = doc.selectFirst("link[rel=next], a[rel=next], a.next, .next a, a.nextpostslink, .pagination a:contains(›), .pagination a:contains(»), a:contains(Sonraki)")
+            ?.let { it.absUrl("href").ifBlank { null } }
+            ?: Regex("/page/(\\d+)/?").find(url)?.let { m -> url.replace(m.value, "/page/${m.groupValues[1].toInt() + 1}/") }
+            ?: if (items.size >= 12) url.trimEnd('/') + "/page/2/" else null
+        return items to next?.takeIf { it != url }
     }
 }

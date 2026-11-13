@@ -70,7 +70,7 @@ fun SearchScreen() {
                             if (l.isNotEmpty()) rows.add(UiRow("${st.name} · site", l.map { it ->
                                 UiCard("site-" + it.url, it.title, it.poster, it.subtitle, imageHeaders = mapOf("Referer" to st.url + "/")) {
                                     val ctx = com.lagradost.cloudstream3.CommonActivity.activity ?: com.streambox.app.StreamBoxApp.instance!!
-                                    com.streambox.app.sites.SiteBrowserActivity.open(ctx, it.url, it.title, it.poster)
+                                    com.streambox.app.sites.SiteResolver.open(ctx, st, it)
                                 }
                             }))
                         }

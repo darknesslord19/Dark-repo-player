@@ -374,7 +374,7 @@ fun SitesPage() {
                 Text(if (busy) "Kontrol ediliyor…" else "Siteyi ekle", Modifier.padding(start = 6.dp))
             }
         }
-        if (sm.sites.isNotEmpty()) Block("Eklenen siteler", "Dokun: reklamsız tarayıcıda aç · Kalem: düzenle") {
+        if (sm.sites.isNotEmpty()) Block("Eklenen siteler", "Dokun: afiş kataloğu · Dünya: reklamsız tarayıcı · Kalem: düzenle") {
             sm.sites.forEach { st ->
                 val src = remember { MutableInteractionSource() }
                 val focused by src.collectIsFocusedAsState()
@@ -382,7 +382,7 @@ fun SitesPage() {
                     Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(14.dp))
                         .background(if (focused) Color(0xFF222B3D) else Color.Transparent)
                         .clickable(interactionSource = src, indication = LocalIndication.current) {
-                            com.streambox.app.sites.SiteBrowserActivity.open(context, st.url, st.name)
+                            Nav.go(Route.SiteCatalog(st.id))
                         }.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -391,8 +391,10 @@ fun SitesPage() {
                     }
                     Column(Modifier.padding(start = 12.dp).weight(1f)) {
                         Text(st.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text(st.host + if (st.onHome) " · ana sayfada" else "", color = Muted, fontSize = 12.sp, maxLines = 1)
+                        Text(st.host + (if (st.directPlay) " · doğrudan oynat" else " · tarayıcıda aç") + if (st.onHome) " · ana sayfada" else "",
+                            color = Muted, fontSize = 12.sp, maxLines = 1)
                     }
+                    IconButton(onClick = { com.streambox.app.sites.SiteBrowserActivity.open(context, st.url, st.name) }) { Icon(Icons.Default.Language, "Tarayıcıda aç", tint = Muted) }
                     IconButton(onClick = { editing = st }) { Icon(Icons.Default.Edit, "Düzenle", tint = Muted) }
                 }
             }
@@ -407,6 +409,7 @@ fun SitesPage() {
         var n by remember(st) { mutableStateOf(st.name) }
         var search by remember(st) { mutableStateOf(st.search ?: "") }
         var home by remember(st) { mutableStateOf(st.onHome) }
+        var direct by remember(st) { mutableStateOf(st.directPlay) }
         AlertDialog(
             onDismissRequest = { editing = null },
             title = { Text(st.host) },
@@ -417,6 +420,7 @@ fun SitesPage() {
                     OutlinedTextField(search, { search = it.trim() }, label = { Text("Arama adresi ({q} = aranan)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     SwitchRow("Kaynak seçicide göster", null, home) { home = it }
+                    SwitchRow("Doğrudan oynat", "Afişe basınca sayfayı göstermeden videoyu bulur ve DarknesBox oynatıcısını açar. Bulamazsa sayfa reklamsız tarayıcıda açılır.", direct) { direct = it }
                     TextButton(onClick = { sm.remove(st); editing = null; toast(context, "Site silindi") }) {
                         Icon(Icons.Default.Delete, null, tint = Color(0xFFFF453A)); Text("Siteyi sil", color = Color(0xFFFF453A), modifier = Modifier.padding(start = 6.dp))
                     }
@@ -424,7 +428,7 @@ fun SitesPage() {
             },
             confirmButton = {
                 Button(onClick = {
-                    sm.update(st.copy(name = n.ifBlank { st.name }, search = search.ifBlank { null }, onHome = home))
+                    sm.update(st.copy(name = n.ifBlank { st.name }, search = search.ifBlank { null }, onHome = home, directPlay = direct))
                     Nav.homeCache.remove("site:" + st.id); editing = null
                 }) { Text("Kaydet") }
             },
