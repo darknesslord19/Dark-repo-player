@@ -41,6 +41,7 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         PluginManager.init(this)
         NuvioRepoManager.init(this)
         IptvStore.init(this)
+        com.streambox.app.catalog.CatalogManager.init(this)
         runCatching { CsBridge.init(this) }.onFailure { AppLog.e("CloudStream başlatılamadı", it) }
         scope.launch { PluginManager.loadAll(this@StreamBoxApp) }
     }

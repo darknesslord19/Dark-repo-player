@@ -86,6 +86,16 @@ object Tmdb {
     /** Bir rafın belirli sayfası. */
     suspend fun page(shelf: Shelf, page: Int): List<TmdbItem> = list(shelf.path, shelf.type, shelf.params + ("page" to page.toString()))
 
+    /** IMDb kimliğinden TMDB kaydı. */
+    suspend fun findImdb(imdb: String, type: String): TmdbItem? {
+        val o = get("/find/$imdb", mapOf("external_source" to "imdb_id"))
+        val key = if (type == "tv") "tv_results" else "movie_results"
+        val arr = o.optJSONArray(key)?.takeIf { it.length() > 0 }
+            ?: o.optJSONArray(if (type == "tv") "movie_results" else "tv_results")?.takeIf { it.length() > 0 } ?: return null
+        val t = if ((o.optJSONArray(key)?.length() ?: 0) > 0) type else if (type == "tv") "movie" else "tv"
+        return parse(arr.getJSONObject(0), t)
+    }
+
     suspend fun search(query: String): List<TmdbItem> = list("/search/multi", null, mapOf("query" to query))
 
     suspend fun details(type: String, id: Int): TmdbDetails {

@@ -31,6 +31,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import com.streambox.app.Settings
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.ChecklistRtl
@@ -305,7 +311,7 @@ fun ExtensionsScreen() {
             contentPadding = PaddingValues(top = 4.dp, bottom = BottomSpace),
             modifier = Modifier.fillMaxSize()
         ) {
-            if (cs.isEmpty() && nv.isEmpty() && local.isEmpty()) {
+            if (cs.isEmpty() && nv.isEmpty() && local.isEmpty() && com.streambox.app.catalog.CatalogManager.addons.isEmpty()) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                     Message("Henüz depo yok. Sağ üstteki \"Depo ekle\" ile CloudStream ya da Nuvio deposu ekle.")
                 }
@@ -322,6 +328,12 @@ fun ExtensionsScreen() {
                 RepoCard(r.name, "Nuvio · ${list.count { it.enabled }} açık / ${list.size}", list.firstOrNull { it.logo != null }?.logo,
                     onOpen = { Nav.go(Route.RepoPage("nuvio", r.url)) }) {
                     confirm = "\"${r.name}\" Nuvio deposu silinsin mi?" to { NuvioRepoManager.removeRepo(r) }
+                }
+            }
+            gridItems(com.streambox.app.catalog.CatalogManager.addons.filter { query.isBlank() || it.name.contains(query, true) }, key = { "cat-" + it.url }) { a ->
+                RepoCard(a.name, "Katalog · ${a.catalogs.size} liste · ana sayfada aç", a.logo,
+                    onOpen = { Settings.updateHomeSource("catalog:" + a.url); Nav.tab(Route.Home) }) {
+                    confirm = "\"${a.name}\" kataloğu silinsin mi?" to { com.streambox.app.catalog.CatalogManager.remove(a) }
                 }
             }
             if (local.isNotEmpty()) gridItems(listOf(Unit), key = { "local" }) {
@@ -479,11 +491,60 @@ private fun ScraperCard(s: NuvioScraper) {
     }
 }
 
-/** Depo ekleme: CloudStream / Nuvio / dosya. */
+/** Adresin türünü algılayıp doğru yere ekler. Dönüş: (tür, adres). */
+private suspend fun detectAndAdd(context: android.content.Context, input: String, forced: Int): Pair<String, String> {
+    val text = input.trim()
+    when (forced) {
+        1 -> return "cs" to RepoManager.addRepo(context, text).also { RepoManager.pluginsOf(it, refresh = true) }.url
+        2 -> return "nuvio" to NuvioRepoManager.addRepo(text).url
+        3 -> return "catalog" to com.streambox.app.catalog.CatalogManager.add(text).url
+    }
+    // Otomatik: kısa kod / cloudstreamrepo:// → CloudStream; stremio:// → katalog; kullanıcı/repo → Nuvio
+    if (text.startsWith("cloudstreamrepo://") || (!text.contains('.') && !text.contains('/'))) return detectAndAdd(context, text, 1)
+    if (text.startsWith("stremio://")) return detectAndAdd(context, text, 3)
+    if (Regex("^[\\w.-]+/[\\w.-]+$").matches(text)) return detectAndAdd(context, text, 2)
+    val url = if (text.startsWith("http")) text else "https://$text"
+    suspend fun kindOf(u: String): Int? = runCatching {
+        val body = com.streambox.app.Net.getText(u).trim()
+        when {
+            body.startsWith("[") -> 1
+            body.startsWith("{") -> {
+                val o = org.json.JSONObject(body)
+                when {
+                    o.has("pluginLists") -> 1
+                    o.has("scrapers") -> 2
+                    com.streambox.app.catalog.CatalogManager.isCatalogManifest(o) -> 3
+                    else -> null
+                }
+            }
+            else -> null
+        }
+    }.getOrNull()
+    val kind = kindOf(url) ?: if (!url.endsWith(".json")) kindOf(url.trimEnd('/') + "/manifest.json") ?: kindOf(url.trimEnd('/') + "/repo.json") else null
+    return when (kind) {
+        1 -> detectAndAdd(context, url, 1)
+        2 -> detectAndAdd(context, if (kindOf(url) == 2) url else url.trimEnd('/') + "/manifest.json", 2)
+        3 -> detectAndAdd(context, url, 3)
+        else -> throw IllegalArgumentException("Adres tanınmadı. CloudStream repo.json, Nuvio manifest.json ya da Stremio katalog adresi olmalı.")
+    }
+}
+
+private data class AddKind(val title: String, val desc: String, val icon: ImageVector, val color: Color)
+
+private val addKinds = listOf(
+    AddKind("Otomatik", "Adresin türünü kendisi algılar", Icons.Default.AutoAwesome, Gold),
+    AddKind("CloudStream", "repo.json, cloudstreamrepo:// ya da kısa kod", Icons.Default.Extension, Color(0xFF4F8CFF)),
+    AddKind("Nuvio", "manifest.json ya da kullanıcı/repo", Icons.Default.Bolt, Green),
+    AddKind("Katalog", "Stremio katalog eklentisi (afişli listeler)", Icons.Default.ViewModule, Orange),
+    AddKind(".cs3 dosyası", "Telefondaki eklenti dosyasını kur", Icons.Default.FileOpen, Color(0xFFB28CFF)),
+)
+
+/** Depo ekleme penceresi: tek adres alanı, otomatik tür algılama. */
 @Composable
 private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var kind by remember { mutableIntStateOf(0) }
     var url by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -492,53 +553,98 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
         if (uri != null) scope.launch {
             busy = true
             runCatching { PluginManager.installLocal(context, uri) }
-                .onSuccess { onDismiss() }.onFailure { error = "Kurulamadı: ${it.message}" }
+                .onSuccess { onAdded(); onDismiss() }.onFailure { error = "Kurulamadı: ${it.message}" }
             busy = false
         }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss, containerColor = Color(0xFF1A1D24),
-        title = { Text("Depo ekle") },
-        text = {
-            Column {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF23262E)).padding(4.dp)) {
-                    listOf("CloudStream", "Nuvio", ".cs3 dosyası").forEachIndexed { i, t ->
-                        Text(t, color = if (kind == i) Color(0xFF1A1A1A) else Color.White, fontSize = 13.sp, textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (kind == i) Gold else Color.Transparent)
-                                .clickable { kind = i; error = null }.padding(vertical = 9.dp))
-                    }
+    fun submit() {
+        if (kind == 4) { pick.launch(arrayOf("*/*")); return }
+        if (url.isBlank() || busy) return
+        busy = true; error = null
+        scope.launch {
+            val res = runCatching { detectAndAdd(context, url, kind) }
+            busy = false
+            res.onSuccess { (k, u) ->
+                onAdded(); onDismiss()
+                if (k == "catalog") { Settings.updateHomeSource("catalog:$u"); Nav.tab(Route.Home) }
+                else Nav.go(Route.RepoPage(k, u))
+            }.onFailure { error = it.message ?: "Eklenemedi"; AppLog.e("Depo ekleme", it) }
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF16181E))
+            .border(1.dp, EStroke, RoundedCornerShape(24.dp)).padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Gold.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Add, null, tint = Gold)
                 }
-                Spacer(Modifier.height(12.dp))
-                if (kind < 2) {
-                    OutlinedTextField(url, { url = it }, singleLine = true,
-                        label = { Text(if (kind == 0) "repo.json, cloudstreamrepo:// ya da kısa kod" else "manifest.json ya da kullanıcı/repo") },
-                        modifier = Modifier.fillMaxWidth())
-                } else Text("Telefondaki bir .cs3 eklenti dosyasını seç.", color = Muted)
-                if (busy) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text("Ekleniyor…", color = Muted, modifier = Modifier.padding(start = 10.dp))
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text("Depo ekle", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Eklenti deposu ya da katalog adresi", color = Muted, fontSize = 12.sp)
                 }
-                error?.let { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
+                BareAction(Icons.Default.Close, "Kapat") { if (!busy) onDismiss() }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = !busy && (kind == 2 || url.isNotBlank()), onClick = {
-                if (kind == 2) { pick.launch(arrayOf("*/*")); return@TextButton }
-                busy = true; error = null
-                scope.launch {
-                    val res = runCatching {
-                        if (kind == 0) RepoManager.addRepo(context, url).also { RepoManager.pluginsOf(it, refresh = true) }.url
-                        else NuvioRepoManager.addRepo(url).url
+            Spacer(Modifier.height(14.dp))
+            // Tür seçimi
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                addKinds.forEachIndexed { i, k ->
+                    val src = remember { MutableInteractionSource() }
+                    val focused by src.collectIsFocusedAsState()
+                    val sel = kind == i
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                            .background(if (sel) k.color.copy(alpha = 0.12f) else Color(0xFF1C1F26))
+                            .border(1.5.dp, if (focused) Color.White else if (sel) k.color else Color.Transparent, RoundedCornerShape(14.dp))
+                            .clickable(interactionSource = src, indication = LocalIndication.current) { kind = i; error = null }
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(k.icon, null, tint = k.color, modifier = Modifier.size(20.dp))
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(k.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(k.desc, fontSize = 11.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (sel) Icon(Icons.Default.CheckCircle, null, tint = k.color, modifier = Modifier.size(18.dp))
                     }
-                    busy = false
-                    res.onSuccess { u -> onAdded(); onDismiss(); Nav.go(Route.RepoPage(if (kind == 0) "cs" else "nuvio", u)) }
-                        .onFailure { error = "Eklenemedi: ${it.message}"; AppLog.e("Depo ekleme", it) }
                 }
-            }) { Text(if (kind == 2) "Dosya seç" else "Ekle", fontWeight = FontWeight.Bold, color = Gold) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Vazgeç") } }
-    )
+            }
+            if (kind != 4) {
+                Spacer(Modifier.height(14.dp))
+                OutlinedTextField(
+                    url, { url = it; error = null }, singleLine = true,
+                    placeholder = { Text("https://…", color = Muted) },
+                    leadingIcon = { Icon(Icons.Default.Link, null, tint = Muted) },
+                    trailingIcon = {
+                        Text("Yapıştır", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
+                                clipboard.getText()?.text?.let { url = it.trim(); error = null }
+                            }.padding(horizontal = 10.dp, vertical = 6.dp))
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { submit() }),
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
+                )
+            }
+            error?.let {
+                Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Red.copy(alpha = 0.12f)).padding(10.dp)) {
+                    Text(it, color = Red, fontSize = 12.sp)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            val enabled = !busy && (kind == 4 || url.isNotBlank())
+            Row(
+                Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(14.dp))
+                    .background(if (enabled) Gold else Color(0xFF2A2D35))
+                    .clickable(enabled = enabled) { submit() },
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1A1A1A))
+                else Text(if (kind == 4) "Dosya seç" else "Ekle", color = if (enabled) Color(0xFF1A1A1A) else Muted,
+                    fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+    }
 }
 
 // ================================================================== Depo sayfası

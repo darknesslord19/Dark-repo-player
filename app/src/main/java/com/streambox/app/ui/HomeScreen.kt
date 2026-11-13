@@ -77,7 +77,10 @@ import com.streambox.app.plugins.CsCard
 import com.streambox.app.plugins.PluginManager
 import com.streambox.app.plugins.RepoManager
 import com.streambox.app.nuvio.NuvioRepoManager
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.streambox.app.catalog.CatalogManager
 
 fun TmdbItem.toCard() = UiCard(
     key = "tmdb-$type-$id", title = title, image = poster,
@@ -90,6 +93,24 @@ fun CsCard.toCard() = UiCard(key = "cs-${api.name}-$url", title = name, image = 
 }
 
 const val TMDB_SOURCE = "__tmdb__"
+
+/** Katalog içeriği kartı: tıklanınca TMDB kaydına çevrilip detay sayfası açılır. */
+fun com.streambox.app.catalog.CatalogItem.toCard() = UiCard(
+    key = "cat-$type-$id", title = name, image = poster,
+    subtitle = listOfNotNull(year, if (type == "series") "Dizi" else "Film").joinToString(" · "),
+    backdrop = background, overview = description,
+) { openCatalogItem(this) }
+
+fun openCatalogItem(item: com.streambox.app.catalog.CatalogItem) {
+    val app = com.streambox.app.StreamBoxApp.instance ?: return
+    app.scope.launch {
+        val t = com.streambox.app.catalog.CatalogManager.toTmdb(item)
+        com.streambox.app.onMain {
+            if (t != null) Nav.go(Route.TmdbDetail(t))
+            else android.widget.Toast.makeText(app, "\"${item.name}\" TMDB'de bulunamadı", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+}
 
 /** Kaynak seçicide kategori çipleri: CloudStream TvType adlarına göre. */
 private val categories = listOf(
@@ -132,6 +153,27 @@ fun HomeScreen() {
         if (isNuvio && selected != "nuvio:*" && NuvioRepoManager.repos.none { "nuvio:" + it.url == selected }) {
             Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect
         }
+        val catalog = if (selected.startsWith("catalog:")) CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected } else null
+        if (selected.startsWith("catalog:") && catalog == null) { Settings.updateHomeSource(TMDB_SOURCE); return@LaunchedEffect }
+        if (catalog != null) {
+            rows = null; error = null
+            val result = kotlinx.coroutines.coroutineScope {
+                catalog.catalogs.map { c ->
+                    async {
+                        runCatching { CatalogManager.items(catalog, c) }.onFailure { AppLog.e("Katalog ${c.name}", it) }.getOrNull()
+                            ?.takeIf { it.isNotEmpty() }?.let { first ->
+                                val title = c.name + " · " + if (c.type == "series") "Diziler" else if (c.type == "movie") "Filmler" else c.type
+                                UiRow(title, first.map { it.toCard() }) { page ->
+                                    CatalogManager.items(catalog, c, skip = (page - 1) * first.size).map { it.toCard() }
+                                }
+                            }
+                    }
+                }.mapNotNull { it.await() }
+            }
+            Nav.homeCache[catalogKey] = result
+            rows = result
+            return@LaunchedEffect
+        }
         if (catalogKey != TMDB_SOURCE && api == null) {
             // eklentiler henüz yükleniyor olabilir
             if (loadedCount < PluginManager.installed.count { it.enabled }) return@LaunchedEffect
@@ -161,6 +203,7 @@ fun HomeScreen() {
         selected == TMDB_SOURCE -> "Keşfet"
         selected == "nuvio:*" -> "Nuvio"
         isNuvio -> NuvioRepoManager.repos.firstOrNull { "nuvio:" + it.url == selected }?.name ?: "Nuvio"
+        selected.startsWith("catalog:") -> CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected }?.name ?: "Katalog"
         else -> selected
     }
     Box(Modifier.fillMaxSize()) {
@@ -195,7 +238,7 @@ fun HomeScreen() {
             Text("Box", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Accent)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { Nav.tab(Route.Search) }) { Icon(Icons.Default.Search, "Ara", tint = Color.White) }
-            SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio) { picker = true }
+            SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio || selected.startsWith("catalog:")) { picker = true }
         }
     }
 
@@ -319,6 +362,24 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
             LazyColumn(Modifier.fillMaxWidth().height(520.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
                     SourceRow("Keşfet", "TMDB kataloğu · tüm Nuvio eklentileri", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
+                }
+                // Stremio katalog eklentileri
+                val cats = CatalogManager.addons.filter { query.isBlank() || it.name.contains(query, true) }
+                if (cats.isNotEmpty() && category == 0) {
+                    item(key = "g-catalog") {
+                        Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
+                                Text("K", color = Color(0xFFFFB020), fontWeight = FontWeight.Bold)
+                            }
+                            Text("KATALOGLAR", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
+                                modifier = Modifier.padding(start = 12.dp).weight(1f))
+                            Text("${cats.size}", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    items(cats) { a ->
+                        SourceRow(a.name, "Katalog · ${a.catalogs.size} liste · Nuvio ile oynatılır", Icons.Default.Explore,
+                            selected == "catalog:" + a.url) { onPick("catalog:" + a.url) }
+                    }
                 }
                 // Nuvio repoları: TMDB kataloğu + yalnızca o reponun eklentileriyle yayın arama
                 val nuvioRepos = NuvioRepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }

@@ -45,13 +45,22 @@ fun SearchScreen() {
         job?.cancel()
         rows.clear()
         val providers = CsBridge.providers()
-        running = 1 + providers.size
+        val catalogs = com.streambox.app.catalog.CatalogManager.addons.flatMap { a -> a.catalogs.filter { it.hasSearch }.map { a to it } }
+        running = 1 + providers.size + catalogs.size
         job = scope.launch {
             launch {
                 runCatching { Tmdb.search(q) }
                     .onSuccess { l -> if (l.isNotEmpty()) rows.add(0, UiRow("Keşfet (TMDB · Nuvio)", l.map { it.toCard() })) }
                     .onFailure { AppLog.e("TMDB arama", it) }
                 running--
+            }
+            catalogs.forEach { (a, c) ->
+                launch {
+                    runCatching { com.streambox.app.catalog.CatalogManager.items(a, c, search = q) }
+                        .onSuccess { l -> if (l.isNotEmpty()) rows.add(UiRow("${a.name} · ${c.name} (${if (c.type == "series") "Dizi" else "Film"})", l.map { it.toCard() })) }
+                        .onFailure { AppLog.e("${a.name} arama", it) }
+                    running--
+                }
             }
             providers.forEach { api ->
                 launch {
