@@ -8,15 +8,12 @@ import okhttp3.Headers.Companion.toHeaders
 import okhttp3.OkHttpClient
 
 /** CloudStream RequestsHelper karşılığı: eklentiler kendi istemcilerini kurarken kullanır. */
-fun Requests.initClient(context: Context): OkHttpClient {
+fun Requests.initClient(context: Context) {
     baseClient = Net.client
-    return Net.client
 }
 
-fun Requests.initClient(context: Context, ignoreSSL: Boolean = false): OkHttpClient {
-    val c = buildDefaultClient(context, ignoreSSL)
-    baseClient = c
-    return c
+fun Requests.initClient(context: Context, ignoreSSL: Boolean = false) {
+    baseClient = buildDefaultClient(context, ignoreSSL)
 }
 
 fun buildDefaultClient(context: Context): OkHttpClient = Net.client

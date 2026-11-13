@@ -22,6 +22,19 @@ object CommonActivity {
     val screenWidthWithOrientation: Int get() = displayMetrics.widthPixels
     val screenHeightWithOrientation: Int get() = displayMetrics.heightPixels
 
+    var isPipDesired: Boolean = false
+    var isInPIPMode: Boolean = false
+    var appliedTheme: Int = 0
+    var appliedColor: Int = 0
+    var keyEventListener: ((Pair<android.view.KeyEvent?, Boolean>) -> Boolean)? = null
+
+    fun init(act: Activity) = setActivityInstance(act)
+    fun onUserLeaveHint(act: Activity) {}
+    fun updateTheme(act: Activity) {}
+    fun loadThemes(act: Activity?) {}
+    fun setLocale(context: android.content.Context?, languageCode: String?) {}
+    fun updateLocale(context: android.content.Context?) {}
+
     private fun toast(text: String?, duration: Int?) {
         val c = activity ?: KeyStore.ctx() ?: return
         if (text.isNullOrBlank()) return
