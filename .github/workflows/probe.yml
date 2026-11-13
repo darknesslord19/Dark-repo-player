@@ -14,7 +14,4 @@ jobs:
           curl -sSL -m 30 -A "Mozilla/5.0 (Linux; Android 13; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36" -D headers.txt -o page.html -w 'HTTP %{http_code} final=%{url_effective}\n' "$U" || true
           cat headers.txt | head -30
           wc -c page.html
-      - uses: actions/upload-artifact@v4
-        with:
-          name: page
-          path: page.html
+          echo "=====BEGIN"; gzip -c page.html | base64 -w0; echo; echo "=====END"
