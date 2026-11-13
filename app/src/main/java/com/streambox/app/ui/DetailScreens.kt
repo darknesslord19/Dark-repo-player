@@ -290,7 +290,9 @@ fun TmdbDetailScreen(item: TmdbItem) {
                     source = scraper.name,
                     label = listOfNotNull(st.quality, st.name.takeIf { n -> n != scraper.name }).joinToString(" · ").ifBlank { st.name },
                     detail = listOfNotNull(st.title.takeIf { it.isNotBlank() }, st.size).joinToString(" · ").ifBlank { null },
-                    item = PlayItem(dialogTitle ?: item.title, st.url, st.headers),
+                    item = PlayItem(dialogTitle ?: item.title, st.url, st.headers,
+                        resumeKey = "tmdb|${item.type}|${item.id}|${s ?: 0}|${e ?: 0}",
+                        meta = com.streambox.app.WatchHistory.tmdbMeta(item, if (s != null) "S${s} · B${e}" else null)),
                 )
             }
             // en yüksek kalite üstte
@@ -385,7 +387,10 @@ fun CsDetailScreen(card: CsCard) {
                             detail = if (l.quality > 0) "${l.quality}p" else null,
                             item = PlayItem(title, l.url, headers,
                                 when { l.isHls -> PlayItem.Kind.HLS; l.isDash -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
-                                subs.toList()),
+                                subs.toList(),
+                                resumeKey = "cs|${card.api.name}|${card.url}|$data",
+                                meta = com.streambox.app.WatchHistory.csMeta(card.api.name, card.url, details?.title ?: card.name,
+                                    title.substringAfter(" · ", "").ifBlank { null }, details?.poster ?: card.poster)),
                         )
                     }
                 },

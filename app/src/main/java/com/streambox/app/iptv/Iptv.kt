@@ -225,3 +225,11 @@ object IptvStore {
         playlists.remove(p); save()
     }
 }
+
+
+/** Kanalı oynatıcı öğesine çevirir ("Kaldığın yerden izle" bilgileriyle). */
+fun Channel.toPlayItem() = com.streambox.app.player.PlayItem(
+    name, url, headers, live = true, label = group,
+    resumeKey = "iptv|$url",
+    meta = com.streambox.app.WatchHistory.iptvMeta(name, url, logo, group, headers),
+)

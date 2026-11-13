@@ -1,5 +1,6 @@
 package com.streambox.app.ui
 
+import com.streambox.app.iptv.toPlayItem
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
@@ -165,7 +166,7 @@ fun HomeScreen() {
                     UiCard("iptv-${ch.url}", ch.name, ch.logo, g) {
                         if (ctx != null) {
                             com.streambox.app.iptv.IptvStore.markWatched(ch.url)
-                            val items = list.map { com.streambox.app.player.PlayItem(it.name, it.url, it.headers, live = true, label = it.group) }
+                            val items = list.map { it.toPlayItem() }
                             com.streambox.app.player.PlayerActivity.start(ctx, items, i)
                         }
                     }
@@ -229,7 +230,7 @@ fun HomeScreen() {
         selected == TMDB_SOURCE -> "Keşfet"
         selected == "nuvio:*" -> "Nuvio"
         isNuvio -> NuvioRepoManager.repos.firstOrNull { "nuvio:" + it.url == selected }?.name ?: "Nuvio"
-        selected.startsWith("iptv:") -> com.streambox.app.iptv.IptvStore.playlists.firstOrNull { "iptv:" + it.id == selected }?.name ?: "Canlı TV"
+        selected.startsWith("iptv:") -> com.streambox.app.iptv.IptvStore.playlists.firstOrNull { "iptv:" + it.id == selected }?.name ?: "Darknes IPTV"
         selected.startsWith("catalog:") -> CatalogManager.addons.firstOrNull { "catalog:" + it.url == selected }?.name ?: "Katalog"
         else -> selected
     }
@@ -241,6 +242,7 @@ fun HomeScreen() {
                 if (heroCards.isNotEmpty()) Hero(heroCards)
                 else Spacer(Modifier.statusBarsPadding().height(72.dp))
             }
+            item { ContinueWatchingRow() }
             when {
                 r == null -> item { Loading() }
                 error != null -> item { Message("Yüklenemedi: $error") }
@@ -390,7 +392,7 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                 item {
                     SourceRow("Keşfet", "TMDB kataloğu · tüm Nuvio eklentileri", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
                 }
-                // IPTV hesapları (Canlı TV'de "ana sayfada göster" açık olanlar)
+                // IPTV hesapları (Darknes IPTV'de "ana sayfada göster" açık olanlar)
                 val tvs = com.streambox.app.iptv.IptvStore.playlists.filter { it.onHome && (query.isBlank() || it.name.contains(query, true)) }
                 if (tvs.isNotEmpty() && (category == 0 || categories[category].first == "Canlı TV")) {
                     item(key = "g-iptv") {
@@ -398,7 +400,7 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
                                 Text("TV", color = Color(0xFFFF3B30), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
-                            Text("CANLI TV", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
+                            Text("DARKNES IPTV", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp,
                                 modifier = Modifier.padding(start = 12.dp).weight(1f))
                             Text("${tvs.size}", color = Muted, fontSize = 13.sp)
                         }

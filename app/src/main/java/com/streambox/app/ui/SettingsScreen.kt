@@ -380,8 +380,8 @@ private fun IptvPage() {
                 uaNames.forEach { (k, v) -> RadioRow(v.first, v.second, Settings.iptvUa == k) { Settings.updateIptvUa(k) } }
             }
         }
-        Block("Listeler", "Kayıtlı ${IptvStore.playlists.size} hesap. Eklemek, silmek ya da adını değiştirmek için Canlı TV'deki kalem düğmesini kullan.") {
-            Choice("Canlı TV'yi aç", false) { Nav.tab(Route.Iptv) }
+        Block("Listeler", "Kayıtlı ${IptvStore.playlists.size} hesap. Eklemek, silmek ya da adını değiştirmek için Darknes IPTV'deki ⋮ menüsünü kullan.") {
+            Choice("Darknes IPTV'yi aç", false) { Nav.tab(Route.Iptv) }
         }
     }
 }

@@ -51,6 +51,10 @@ data class PlayItem(
     val subtitles: List<PlaySub> = emptyList(),
     val live: Boolean = false,
     val label: String? = null,   // kaynak listesinde görünen ad (ör. "Vidmoly · 1080p")
+    /** "Kaldığın yerden izle" anahtarı: aynı içerik/bölüm için sabit. */
+    val resumeKey: String? = null,
+    /** Geçmişten yeniden açmak için bilgiler (WatchHistory.*Meta). */
+    val meta: String? = null,
 ) {
     enum class Kind { AUTO, HLS, DASH, PROGRESSIVE }
 }
@@ -124,6 +128,7 @@ class PlayerActivity : ComponentActivity() {
         }
         createPlayer()
         playIndex(pendingIndex)
+        window.decorView.postDelayed(saver, 10_000)
         setContent { PlayerScreen(this) }
     }
 
@@ -203,9 +208,12 @@ class PlayerActivity : ComponentActivity() {
 
     fun playIndex(i: Int) {
         if (i !in items.indices) return
+        saveProgress()
         ui.index = i
         uaAttempt = workingUa[hostOf(items[i].url)] ?: 0
-        load(items[i], 0)
+        val start = com.streambox.app.WatchHistory.positionFor(items[i].resumeKey)
+        load(items[i], start)
+        if (start > 0) android.widget.Toast.makeText(this, "Kaldığın yerden devam ediliyor", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun load(it: PlayItem, startMs: Long) {
@@ -248,6 +256,25 @@ class PlayerActivity : ComponentActivity() {
     }
 
     fun retry() = load(current(), player?.currentPosition ?: 0)
+
+    /** İzleme konumunu "Kaldığın yerden izle" için kaydeder. */
+    fun saveProgress() {
+        val p = player ?: return
+        if (items.isEmpty()) return
+        val item = current()
+        val dur = p.duration.let { if (it == C.TIME_UNSET || it < 0) 0L else it }
+        val pos = p.currentPosition
+        // Hiç oynamadıysa (hata) kaydetme
+        if (pos <= 0 && !(item.live && p.playbackState == Player.STATE_READY)) return
+        com.streambox.app.WatchHistory.update(item.resumeKey, item.meta, if (item.live && dur == 0L) 0 else pos, dur)
+    }
+
+    private val saver = object : Runnable {
+        override fun run() {
+            if (player?.isPlaying == true) saveProgress()
+            window.decorView.postDelayed(this, 10_000)
+        }
+    }
 
     fun togglePlay() {
         val p = player ?: return
@@ -339,11 +366,13 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        saveProgress()
         super.onStop()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !isInPictureInPictureMode) player?.pause()
     }
 
     override fun onDestroy() {
+        window.decorView.removeCallbacks(saver)
         player?.release()
         player = null
         super.onDestroy()

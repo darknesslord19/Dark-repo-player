@@ -1,5 +1,6 @@
 package com.streambox.app.ui
 
+import com.streambox.app.iptv.toPlayItem
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -229,7 +230,7 @@ private fun AccountSheet(p: Playlist, onDismiss: () -> Unit, onRename: () -> Uni
                 }
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF22262E)))
-            SheetRow(Icons.Default.Home, Accent, "Ana sayfada göster", "Kaynak seçicide \"Canlı TV\" altında", trailing = {
+            SheetRow(Icons.Default.Home, Accent, "Ana sayfada göster", "Kaynak seçicide \"Darknes IPTV\" altında", trailing = {
                 androidx.compose.material3.Switch(current.onHome, { IptvStore.setOnHome(current, it) },
                     colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Accent))
             }) { IptvStore.setOnHome(current, !current.onHome) }
@@ -261,13 +262,12 @@ fun IptvScreen() {
     var query by rememberSaveable { mutableStateOf("") }
     val wide = isWide()
 
-    // Arama ve "Devam et" için tüm hesapların kanalları (bellekte önbellekli)
+    // Arama için tüm hesapların kanalları (bellekte önbellekli)
     var all by remember { mutableStateOf<List<Channel>>(emptyList()) }
     LaunchedEffect(IptvStore.playlists.size) {
         all = IptvStore.playlists.flatMap { p -> runCatching { IptvStore.channels(p) }.getOrDefault(emptyList()) }
     }
     val byUrl = remember(all) { all.associateBy { it.url } }
-    val recent = IptvStore.recents.mapNotNull { byUrl[it] }.take(20)
     val results = remember(all, query) {
         if (query.trim().length < 2) emptyList() else all.filter { it.name.contains(query.trim(), true) }.take(300)
     }
@@ -275,7 +275,7 @@ fun IptvScreen() {
 
     fun play(list: List<Channel>, i: Int) {
         IptvStore.markWatched(list[i].url)
-        PlayerActivity.start(context, list.map { PlayItem(it.name, it.url, it.headers, live = true, label = it.group) }, i)
+        PlayerActivity.start(context, list.map { it.toPlayItem() }, i)
     }
 
     LazyVerticalGrid(
@@ -291,7 +291,7 @@ fun IptvScreen() {
         item(span = full) {
             Row(Modifier.fillMaxWidth().padding(18.dp, 14.dp, 16.dp, 0.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("Canlı TV", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Darknes IPTV", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
                         if (IptvStore.playlists.isEmpty()) "IPTV hesabı ekleyerek başla"
                         else "${IptvStore.playlists.size} hesap" + if (totalChannels > 0) " · %,d kanal".format(totalChannels).replace(',', '.') else "",
@@ -363,19 +363,6 @@ fun IptvScreen() {
                                     Box(Modifier.weight(1f)) { AccountRow(p, onOpen = { Nav.go(Route.IptvList(p)) }, onMore = { menu = p }) }
                                 }
                                 if (pair.size == 1 && wide) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-                if (recent.isNotEmpty()) {
-                    item(span = full) { SectionLabel("DEVAM ET") }
-                    item(span = full) {
-                        LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(recent.size) { i ->
-                                Box(Modifier.width(if (wide) 120.dp else 92.dp)) {
-                                    ChannelCard(recent[i], recent[i].url in IptvStore.favorites, onClick = { play(recent, i) },
-                                        onLongClick = { IptvStore.toggleFavorite(recent[i].url) })
-                                }
                             }
                         }
                     }
@@ -713,7 +700,7 @@ fun IptvListScreen(playlist: Playlist) {
 
     val play: (Int) -> Unit = { i ->
         IptvStore.markWatched(visible[i].url)
-        val list = visible.map { PlayItem(it.name, it.url, it.headers, live = true, label = it.group) }
+        val list = visible.map { it.toPlayItem() }
         PlayerActivity.start(context, list, i)
     }
     val fav: (Channel) -> Unit = { ch ->
@@ -744,7 +731,7 @@ fun IptvListScreen(playlist: Playlist) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(28.dp, 18.dp, 28.dp, 12.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Canlı TV", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("Darknes IPTV", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White)
                     Row(Modifier.clip(CircleShape).background(Color(0xFF171A21)).clickable { Nav.back() }.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape).background(paletteOf(playlist).last()))
@@ -779,7 +766,7 @@ fun IptvListScreen(playlist: Playlist) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp, 12.dp, 6.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Canlı TV", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("Darknes IPTV", fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Row(Modifier.weight(1f, fill = false).clip(CircleShape).background(Color(0xFF171A21)).clickable { Nav.back() }
                         .padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(9.dp).clip(CircleShape).background(paletteOf(playlist).last()))

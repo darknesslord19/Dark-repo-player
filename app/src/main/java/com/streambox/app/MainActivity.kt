@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
 private val tabs = listOf(
     NavTab(Route.Home, "Ana Sayfa", Icons.Default.Home),
     NavTab(Route.Search, "Ara", Icons.Default.Search),
-    NavTab(Route.Iptv, "Canlı TV", Icons.Default.LiveTv),
+    NavTab(Route.Iptv, "Darknes IPTV", Icons.Default.LiveTv),
     NavTab(Route.Extensions, "Eklentiler", Icons.Default.Extension),
     NavTab(Route.Settings, "Ayarlar", Icons.Default.Settings),
 )
