@@ -112,6 +112,13 @@ class SiteBrowserActivity : AppCompatActivity() {
             isFocusable = true; isFocusableInTouchMode = true
 
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    // Sayfanın işlemcisi çöktü (çoğunlukla bellek): uygulamayı çökertme
+                    com.streambox.app.AppLog.e("Tarayıcı işlemi kapandı (${if (detail.didCrash()) "çöktü" else "bellek"}): ${view.url}")
+                    runCatching { (view.parent as? android.view.ViewGroup)?.removeView(view); view.destroy() }; Toast.makeText(this@SiteBrowserActivity, "Sayfa çok ağır geldi, kapatıldı", Toast.LENGTH_SHORT).show(); finish()
+                    return true
+                }
+
                 override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) { runOnUiThread { blocked++ }; return AdBlock.empty }

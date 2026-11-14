@@ -73,6 +73,14 @@ object NuvioRuntime {
         wv.resumeTimers()
         wv.onResume()
         wv.webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    // Sayfanın işlemcisi çöktü (çoğunlukla bellek): uygulamayı çökertme
+                    com.streambox.app.AppLog.e("Tarayıcı işlemi kapandı (${if (detail.didCrash()) "çöktü" else "bellek"}): ${view.url}")
+                    if (web === view) web = null
+                    runCatching { view.destroy() }
+                    return true
+                }
+
             override fun onPageFinished(view: WebView, url: String?) {
                 if (ready.isCompleted) return
                 val assets = context.assets

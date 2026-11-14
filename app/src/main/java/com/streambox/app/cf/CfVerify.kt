@@ -105,6 +105,13 @@ class CfVerifyActivity : AppCompatActivity() {
             settings.domStorageEnabled = true
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    // Sayfanın işlemcisi çöktü (çoğunlukla bellek): uygulamayı çökertme
+                    com.streambox.app.AppLog.e("Tarayıcı işlemi kapandı (${if (detail.didCrash()) "çöktü" else "bellek"}): ${view.url}")
+                    runCatching { (view.parent as? android.view.ViewGroup)?.removeView(view); view.destroy() }; finish()
+                    return true
+                }
+
                 override fun onPageFinished(view: WebView, u: String) { check(u) }
             }
         }

@@ -79,6 +79,13 @@ object SiteResolver {
             var currentPage = item.url
 
             wv.webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    // Sayfanın işlemcisi çöktü (çoğunlukla bellek): uygulamayı çökertme
+                    com.streambox.app.AppLog.e("Tarayıcı işlemi kapandı (${if (detail.didCrash()) "çöktü" else "bellek"}): ${view.url}")
+                    if (web === view) { web = null; runCatching { view.destroy() }; main.post { cancel0(); SiteBrowserActivity.open(context, item.url, item.title, item.poster) } }
+                    return true
+                }
+
                 override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) return AdBlock.empty

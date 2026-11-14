@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.withPermit
 import kotlin.coroutines.resume
 
 /** Reklam ve izleyici engelleyici: bilinen reklam ağları + adres kalıpları + gizleme CSS'i. */
@@ -80,20 +81,32 @@ object VideoSniffer {
 
 /** Gizli tarayıcıda sayfayı açıp JavaScript ile oluşan HTML'i döndürür (Cloudflare/JS siteleri için). */
 object SiteRenderer {
+    /** Aynı anda tek gizli tarayıcı (birden çok ağır sayfa belleği tüketip çökertmesin). */
+    private val gate = kotlinx.coroutines.sync.Semaphore(1)
+
     @SuppressLint("SetJavaScriptEnabled")
-    suspend fun render(context: Context, url: String, waitMs: Long = 4500): String? = withContext(kotlinx.coroutines.Dispatchers.Main) {
+    suspend fun render(context: Context, url: String, waitMs: Long = 4500): String? = gate.withPermit { renderNow(context, url, waitMs) }
+
+    private suspend fun renderNow(context: Context, url: String, waitMs: Long): String? = withContext(kotlinx.coroutines.Dispatchers.Main) {
         val wv = WebView(context.applicationContext)
         try {
             wv.settings.javaScriptEnabled = true
             wv.settings.domStorageEnabled = true
             wv.settings.blockNetworkImage = true
-            wv.layout(0, 0, 1280, 2400)
+            wv.layout(0, 0, 1080, 1920)
             // Tarayıcının kendi kimliği: Cloudflare doğrulaması (cf_clearance) bu kimliğe bağlıdır
             android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
             withTimeoutOrNull(30_000) {
                 suspendCancellableCoroutine { cont ->
                     var done = false
                     wv.webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    // Sayfanın işlemcisi çöktü (çoğunlukla bellek): uygulamayı çökertme
+                    com.streambox.app.AppLog.e("Tarayıcı işlemi kapandı (${if (detail.didCrash()) "çöktü" else "bellek"}): ${view.url}")
+                    done = true; if (cont.isActive) cont.resume(null)
+                    return true
+                }
+
                         override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? =
                             if (AdBlock.isAd(req.url.toString())) AdBlock.empty else null
                         override fun onPageFinished(view: WebView, u: String?) {

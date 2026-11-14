@@ -125,7 +125,10 @@ private fun SiteLatestRow(st: Site) {
                 UiCard("site-" + it.url, it.title, it.poster, listOfNotNull(it.rating?.let { r -> "★ $r" }, it.subtitle).joinToString(" · ").ifBlank { null },
                     imageHeaders = mapOf("Referer" to st.url + "/")) { SiteResolver.open(context, st, it) }
             })
-        }.onFailure { AppLog.e("Site yüklenemedi: ${st.name}", it); failed = true }
+        }.onFailure {
+            if (it is kotlinx.coroutines.CancellationException) throw it
+            AppLog.e("Site yüklenemedi: ${st.name}", it); failed = true
+        }
     }
     Column(Modifier.padding(top = 14.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -32,9 +32,24 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         .respectCacheHeaders(false)
         .build()
 
+    /** Çökme olursa nedenini dosyaya yazar; bir sonraki açılışta Günlük'te gösterilir. */
+    private fun installCrashLog() {
+        val f = java.io.File(filesDir, "last_crash.txt")
+        if (f.exists()) {
+            runCatching { AppLog.e("Önceki açılışta uygulama çöktü:\n" + f.readText().take(3000)) }
+            f.delete()
+        }
+        val prev = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runCatching { f.writeText("[${t.name}] " + android.util.Log.getStackTraceString(e)) }
+            prev?.uncaughtException(t, e)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        installCrashLog()
         Settings.init(this)
         AppIcon.init(this)
         com.streambox.app.cf.CfVerify.init(this)
