@@ -214,7 +214,7 @@ fun SettingsScreen() {
         item {
             Column(Modifier.padding(24.dp, 18.dp, 24.dp, 4.dp)) {
                 Text("Ayarlar", fontSize = 32.sp, fontWeight = FontWeight.Black)
-                Text("DarknesBox ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
+                Text((if (BuildConfig.SITES_ONLY) "Darknes Siteler " else "DarknesBox ") + BuildConfig.VERSION_NAME, color = Muted, fontSize = 13.sp)
             }
         }
         item {
@@ -256,12 +256,12 @@ fun SettingsScreen() {
             SettingGroup("İçerik") {
                 SettingRow(Icons.Default.Language, Color(0xFF5AC8FA), "Siteler",
                     "${com.streambox.app.sites.SiteManager.sites.size} site · reklamsız tarayıcı") { Nav.go(Route.SettingsPage("sites")) }
-                GroupDivider()
-                SettingRow(Icons.Default.Movie, Color(0xFF01B4E4), "TMDB ayarları", "Katalog ve afişler · ${Settings.language}") {
+                if (!BuildConfig.SITES_ONLY) GroupDivider()
+                if (!BuildConfig.SITES_ONLY) SettingRow(Icons.Default.Movie, Color(0xFF01B4E4), "TMDB ayarları", "Katalog ve afişler · ${Settings.language}") {
                     Nav.go(Route.SettingsPage("tmdb"))
                 }
-                GroupDivider()
-                SettingRow(Icons.Default.Extension, Color(0xFFB28CFF), "Eklentiler",
+                if (!BuildConfig.SITES_ONLY) GroupDivider()
+                if (!BuildConfig.SITES_ONLY) SettingRow(Icons.Default.Extension, Color(0xFFB28CFF), "Eklentiler",
                     "${PluginManager.installed.size} CloudStream · ${NuvioRepoManager.scrapers.count { it.enabled }} Nuvio") {
                     Nav.tab(Route.Extensions)
                 }
@@ -274,8 +274,8 @@ fun SettingsScreen() {
                     "Altyazı: ${langNames[Settings.subLang] ?: Settings.subLang} · ${resizeNames[Settings.resizeMode] ?: "Sığdır"}") {
                     Nav.go(Route.SettingsPage("player"))
                 }
-                GroupDivider()
-                SettingRow(Icons.Default.LiveTv, Color(0xFFFF9F0A), "IPTV ayarları",
+                if (!BuildConfig.SITES_ONLY) GroupDivider()
+                if (!BuildConfig.SITES_ONLY) SettingRow(Icons.Default.LiveTv, Color(0xFFFF9F0A), "IPTV ayarları",
                     "${IptvStore.playlists.size} hesap · Kimlik: ${uaNames[Settings.iptvUa]?.first ?: "Otomatik"}") {
                     Nav.go(Route.SettingsPage("iptv"))
                 }

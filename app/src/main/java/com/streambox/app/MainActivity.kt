@@ -51,7 +51,12 @@ import com.streambox.app.ui.SettingsScreen
 import com.streambox.app.ui.TmdbDetailScreen
 import kotlinx.coroutines.launch
 
-private val tabs = listOf(
+private val tabs = if (BuildConfig.SITES_ONLY) listOf(
+    // "Darknes Siteler" ayrı uygulaması: yalnızca siteler
+    NavTab(Route.Home, "Siteler", Icons.Default.Home),
+    NavTab(Route.Search, "Ara", Icons.Default.Search),
+    NavTab(Route.Settings, "Ayarlar", Icons.Default.Settings),
+) else listOf(
     NavTab(Route.Home, "Ana Sayfa", Icons.Default.Home),
     NavTab(Route.Search, "Ara", Icons.Default.Search),
     NavTab(Route.Iptv, "Darknes IPTV", Icons.Default.LiveTv),
@@ -117,7 +122,7 @@ private fun Root() {
         // Ana sayfa vitrini durum çubuğunun altına uzanır; diğer ekranlar onun altından başlar
         Box(if (route == Route.Home) m else m.statusBarsPadding()) {
             when (route) {
-                Route.Home -> HomeScreen()
+                Route.Home -> if (BuildConfig.SITES_ONLY) com.streambox.app.ui.SitesHomeScreen() else HomeScreen()
                 Route.Search -> SearchScreen()
                 Route.Iptv -> IptvScreen()
                 Route.Extensions -> ExtensionsScreen()

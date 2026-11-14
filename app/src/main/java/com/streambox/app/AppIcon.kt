@@ -27,7 +27,7 @@ enum class AppIcon(val alias: String, val label: String, val logo: Int?) {
         fun apply(context: Context, icon: AppIcon) {
             val pm = context.packageManager
             entries.forEach { e ->
-                val cn = ComponentName(context.packageName, "${context.packageName}.${e.alias}")
+                val cn = ComponentName(context.packageName, "com.streambox.app.${e.alias}") // sınıf adı kod paketine göre (ayrı sürümde paket adı farklı)
                 pm.setComponentEnabledSetting(
                     cn,
                     if (e == icon) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,

@@ -44,12 +44,13 @@ fun SearchScreen() {
         if (q.isBlank()) return
         job?.cancel()
         rows.clear()
-        val providers = CsBridge.providers()
-        val catalogs = com.streambox.app.catalog.CatalogManager.addons.flatMap { a -> a.catalogs.filter { it.hasSearch }.map { a to it } }
+        val sitesOnly = com.streambox.app.BuildConfig.SITES_ONLY
+        val providers = if (sitesOnly) emptyList() else CsBridge.providers()
+        val catalogs = if (sitesOnly) emptyList() else com.streambox.app.catalog.CatalogManager.addons.flatMap { a -> a.catalogs.filter { it.hasSearch }.map { a to it } }
         val sites = com.streambox.app.sites.SiteManager.sites.toList()
-        running = 1 + providers.size + catalogs.size + sites.size
+        running = (if (sitesOnly) 0 else 1) + providers.size + catalogs.size + sites.size
         job = scope.launch {
-            launch {
+            if (!sitesOnly) launch {
                 runCatching { Tmdb.search(q) }
                     .onSuccess { l -> if (l.isNotEmpty()) rows.add(0, UiRow("Keşfet (TMDB · Nuvio)", l.map { it.toCard() })) }
                     .onFailure { AppLog.e("TMDB arama", it) }

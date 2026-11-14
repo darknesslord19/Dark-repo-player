@@ -51,6 +51,23 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
+    }
+
+    // İki ayrı uygulama: tam DarknesBox ve yalnızca Siteler bölümünü içeren ayrı APK (yan yana kurulur)
+    flavorDimensions += "edition"
+    productFlavors {
+        create("full") {
+            dimension = "edition"
+            resValue("string", "app_name", "DarknesBox")
+            buildConfigField("boolean", "SITES_ONLY", "false")
+        }
+        create("sites") {
+            dimension = "edition"
+            applicationId = "com.streambox.sites"
+            resValue("string", "app_name", "Darknes Siteler")
+            buildConfigField("boolean", "SITES_ONLY", "true")
+        }
     }
 
     lint {

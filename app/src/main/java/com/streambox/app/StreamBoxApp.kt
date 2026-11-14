@@ -47,8 +47,10 @@ class StreamBoxApp : Application(), coil.ImageLoaderFactory {
         IptvStore.init(this)
         com.streambox.app.catalog.CatalogManager.init(this)
         com.streambox.app.sites.SiteManager.init(this)
-        runCatching { CsBridge.init(this) }.onFailure { AppLog.e("CloudStream başlatılamadı", it) }
-        scope.launch { PluginManager.loadAll(this@StreamBoxApp) }
+        if (!BuildConfig.SITES_ONLY) {
+            runCatching { CsBridge.init(this) }.onFailure { AppLog.e("CloudStream başlatılamadı", it) }
+            scope.launch { PluginManager.loadAll(this@StreamBoxApp) }
+        }
         com.streambox.app.remote.RemoteServer.startIfEnabled(this)
     }
 }
