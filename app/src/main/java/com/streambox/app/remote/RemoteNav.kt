@@ -67,15 +67,18 @@ object RemoteNav {
         else -> KeyEvent.KEYCODE_UNKNOWN
     }
 
-    private fun press(target: View, key: Int) {
+    private fun press(target: View, key: Int): Boolean {
         val now = SystemClock.uptimeMillis()
-        target.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, key, 0))
+        val handled = target.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, key, 0))
         target.dispatchKeyEvent(KeyEvent(now, now + 40, KeyEvent.ACTION_UP, key, 0))
+        return handled
     }
 
     /** Odağı taşır; hiçbir şey odaklı değilse ilk öğeyi seçer. */
     private fun move(fm: FocusManager?, view: View, code: String) {
         val d = dir(code) ?: return
+        // Önce gerçek tuş olarak gönder: odaklı öğe (ör. ilerleme çubuğu) tuşu kendisi kullanabilir
+        if (view.hasFocus() && press(view, keyOf(code))) return
         val moved = runCatching { fm?.moveFocus(d) == true }.getOrDefault(false)
         if (moved) return
         val entered = runCatching { fm?.moveFocus(FocusDirection.Enter) == true || fm?.moveFocus(FocusDirection.Next) == true }.getOrDefault(false)

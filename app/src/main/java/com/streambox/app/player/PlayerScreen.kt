@@ -52,6 +52,11 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -307,14 +312,29 @@ fun PlayerScreen(act: PlayerActivity) {
                     if (canSeek && ui.duration > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(fmt(dragging?.toLong() ?: ui.position), color = Color.White, fontSize = 13.sp)
+                            val seekSrc = remember { MutableInteractionSource() }
+                            val seekFocused by seekSrc.collectIsFocusedAsState()
                             Slider(
+                                interactionSource = seekSrc,
                                 value = (dragging ?: ui.position.toFloat()).coerceIn(0f, ui.duration.toFloat()),
                                 onValueChange = { dragging = it; act.touch() },
                                 onValueChangeFinished = { dragging?.let { act.player?.seekTo(it.toLong()) }; dragging = null },
                                 valueRange = 0f..ui.duration.toFloat(),
-                                colors = SliderDefaults.colors(thumbColor = Accent, activeTrackColor = Accent,
+                                colors = SliderDefaults.colors(thumbColor = if (seekFocused) Color.White else Accent, activeTrackColor = Accent,
                                     inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
                                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+                                    .then(if (seekFocused) Modifier.border(2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(50)) else Modifier)
+                                    // Kumanda: ◀ ▶ 10 sn (basılı tutunca 30 sn), OK oynat/duraklat
+                                    .onPreviewKeyEvent { e ->
+                                        if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                        val step = if (e.nativeKeyEvent.repeatCount > 2) 30_000L else 10_000L
+                                        when (e.key) {
+                                            Key.DirectionLeft -> { act.seekBy(-step); act.touch(); true }
+                                            Key.DirectionRight -> { act.seekBy(step); act.touch(); true }
+                                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { act.togglePlay(); act.touch(); true }
+                                            else -> false
+                                        }
+                                    }
                             )
                             Text("-" + fmt(ui.duration - (dragging?.toLong() ?: ui.position)), color = Color.White, fontSize = 13.sp)
                         }
