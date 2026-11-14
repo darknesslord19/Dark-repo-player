@@ -16,6 +16,7 @@ import com.streambox.app.player.PlayItem
 import com.streambox.app.player.PlayerActivity
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.launch
 
 /**
  * "Doğrudan oynat": sayfayı görünmez bir tarayıcıda (reklamlar engellenmiş halde) açar,
@@ -92,7 +93,7 @@ object SiteResolver {
                     if (web !== view) return
                     status = "Video aranıyor…"
                     // Oynatıcının yüklenmesi için kısa bekle, oynat düğmelerine bas, iframe'leri topla
-                    listOf(1500L, 4000L, 7000L).forEach { d ->
+                    listOf(800L, 2500L, 4500L).forEach { d ->
                         main.postDelayed({
                             if (web !== view || found.isNotEmpty()) return@postDelayed
                             view.evaluateJavascript(CLICK_JS) { r ->
@@ -110,7 +111,7 @@ object SiteResolver {
                         val ref = currentPage
                         currentPage = next
                         view.loadUrl(next, mapOf("Referer" to ref))
-                    }, 9000)
+                    }, 5000)
                 }
             }
             Sniff.install(wv, auto = true) { hit ->
@@ -185,22 +186,29 @@ object SiteResolver {
             return
         }
         waitedForBody = 0
-        // Listesi tarayıcıda alınmış olanlar önce, sonra diğer yayınlar, en son düz dosyalar
-        val list = found.toList().sortedWith(compareByDescending<SniffedVideo> { ManifestCache.has(it.url) }.thenByDescending { it.isStream })
-        cancel0()
-        if (list.isEmpty()) return
-        val meta = JSONObject().put("kind", "site").put("title", item.title).put("subtitle", site.name)
-            .put("poster", item.poster ?: "").put("url", item.url).toString()
-        val items = list.map { v ->
-            PlayItem(item.title, v.url, v.headers,
-                kind = when { v.label.startsWith("HLS") -> PlayItem.Kind.HLS; v.label.startsWith("DASH") -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
-                subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
-                label = v.label, resumeKey = "site|${item.url.substringBefore('#')}", meta = meta)
-        }
-        val ctx = com.streambox.app.ActivityTracker.top?.get() ?: context
-        runCatching { PlayerActivity.start(ctx, items, 0) }.onFailure {
-            AppLog.e("Oynatıcı açılamadı", it)
-            Toast.makeText(context.applicationContext, "Oynatıcı açılamadı: ${it.message}", Toast.LENGTH_LONG).show()
+        val list = found.toList()
+        if (list.isEmpty()) { cancel0(); return }
+        status = "Videolar kontrol ediliyor (${list.size})…"
+        val wv = web
+        com.streambox.app.StreamBoxApp.instance!!.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            // Hepsini aynı anda yokla: açılmayanlar elenir, en uzun (asıl film) önce gelir
+            val ranked = VideoProbe.rank(list, 7_000)
+            if (web !== wv) return@launch // iptal edildi
+            cancel0()
+            val meta = JSONObject().put("kind", "site").put("title", item.title).put("subtitle", site.name)
+                .put("poster", item.poster ?: "").put("url", item.url).toString()
+            val items = ranked.map { r ->
+                val v = r.video
+                PlayItem(item.title, v.url, v.headers,
+                    kind = when (r.kind) { "HLS" -> PlayItem.Kind.HLS; "DASH" -> PlayItem.Kind.DASH; "MP4", "MKV", "WEBM", "TS" -> PlayItem.Kind.PROGRESSIVE; else -> if (v.isStream) PlayItem.Kind.HLS else PlayItem.Kind.AUTO },
+                    subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
+                    label = (if (r.ok) "" else "✗ ") + r.label, resumeKey = "site|${item.url.substringBefore('#')}", meta = meta)
+            }
+            val ctx = com.streambox.app.ActivityTracker.top?.get() ?: context
+            runCatching { PlayerActivity.start(ctx, items, 0) }.onFailure {
+                AppLog.e("Oynatıcı açılamadı", it)
+                Toast.makeText(context.applicationContext, "Oynatıcı açılamadı: ${it.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

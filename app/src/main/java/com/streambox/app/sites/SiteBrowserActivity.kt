@@ -47,6 +47,8 @@ import com.streambox.app.ui.Accent
 import com.streambox.app.ui.AppTheme
 import com.streambox.app.ui.Muted
 import org.json.JSONObject
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import java.net.URI
 
 /** Sayfada yakalanan video. */
@@ -185,21 +187,31 @@ class SiteBrowserActivity : AppCompatActivity() {
         }
     }
 
+    private var probing by mutableStateOf(false)
+
     private fun play(index: Int) {
+        if (probing) return
         val title = pageTitle.ifBlank { siteOf(pageUrl) }
         val meta = JSONObject().put("kind", "site").put("title", title).put("subtitle", siteOf(pageUrl))
             .put("poster", poster ?: "").put("url", pageUrl).toString()
         val chosen = videos.getOrNull(index)
-        // Yayın listeleri (HLS/DASH) önce: reklam MP4'leri sona
-        val ordered = videos.sortedWith(compareByDescending<SniffedVideo> { it == chosen }.thenByDescending { ManifestCache.has(it.url) }.thenByDescending { it.isStream })
-        val items = ordered.map { v ->
-            PlayItem(title, v.url, v.headers,
-                kind = when { v.label.startsWith("HLS") -> PlayItem.Kind.HLS; v.label.startsWith("DASH") -> PlayItem.Kind.DASH; else -> PlayItem.Kind.AUTO },
-                subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
-                label = v.label, resumeKey = "site|${pageUrl.substringBefore('#')}", meta = meta)
+        val list = videos.toList()
+        probing = true
+        lifecycleScope.launch {
+            // Hepsini aynı anda yokla; kullanıcının seçtiği çalışıyorsa önce o, yoksa en uzun çalışan
+            val ranked = VideoProbe.rank(list, 7_000)
+            probing = false
+            val ordered = ranked.sortedByDescending { if (it.video == chosen && it.ok && list.size > 1 && index > 0) Double.MAX_VALUE else it.score }
+            val items = ordered.map { r ->
+                val v = r.video
+                PlayItem(title, v.url, v.headers,
+                    kind = when (r.kind) { "HLS" -> PlayItem.Kind.HLS; "DASH" -> PlayItem.Kind.DASH; "MP4", "MKV", "WEBM", "TS" -> PlayItem.Kind.PROGRESSIVE; else -> if (v.isStream) PlayItem.Kind.HLS else PlayItem.Kind.AUTO },
+                    subtitles = v.subs.map { (l, u) -> com.streambox.app.player.PlaySub(l, u) },
+                    label = (if (r.ok) "" else "✗ ") + r.label, resumeKey = "site|${pageUrl.substringBefore('#')}", meta = meta)
+            }
+            web.onPause()
+            PlayerActivity.start(this@SiteBrowserActivity, items, 0)
         }
-        web.onPause()
-        PlayerActivity.start(this, items, ordered.indexOf(chosen).coerceAtLeast(0))
     }
 
     override fun onResume() { super.onResume(); if (::web.isInitialized) web.onResume() }
@@ -240,7 +252,9 @@ class SiteBrowserActivity : AppCompatActivity() {
                         Text(if (videos.size == 1) "Oynat" else "Videolar ${videos.size}", Modifier.padding(start = 4.dp))
                     }
                 }
-                if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = Accent)
+                if (loading || probing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = Accent)
+                if (probing) Text("Videolar kontrol ediliyor…", color = Color.White, fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF1C2638)).padding(horizontal = 12.dp, vertical = 4.dp))
                 AndroidView({ web }, Modifier.fillMaxSize())
             }
             customView?.let { v ->

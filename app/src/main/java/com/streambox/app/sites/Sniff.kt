@@ -114,6 +114,12 @@ object Sniff {
         report(v.currentSrc || v.src, 'video');
         if (AUTO && v.tagName === 'VIDEO' && v.paused) { v.muted = true; var r = v.play(); if (r && r.catch) r.catch(function(){}); }
       });
+      if (tries === 2 || tries === 8) {
+        // Sayfa kaynağında açıkça yazan video adresleri (script içindeki file:/source: vb.)
+        var html = document.documentElement ? document.documentElement.innerHTML : '';
+        var re = /https?:\\?\/\\?\/[^"'\s<>()]+?\.(m3u8|mp4|mkv|webm|mpd)(\?[^"'\s<>()]*)?/gi, m, n = 0;
+        while ((m = re.exec(html)) && n < 20) { n++; var u = m[0].replace(/\\\//g, '/'); if (!/thumb|preview|trailer|fragman|sprite/i.test(u)) report(u, 'html', /m3u8/i.test(m[1]) ? 'hls' : (/mpd/i.test(m[1]) ? 'dash' : '')); }
+      }
       if (AUTO && tries % 3 === 1) {
         ['.jw-display-icon-container','.vjs-big-play-button','.plyr__control--overlaid','.play-button','.btn-play','.play',
          '[class*=play-btn]','[class*=playbtn]','.fp-play','#play','.player-poster','[aria-label=Play]'].forEach(function(s){
