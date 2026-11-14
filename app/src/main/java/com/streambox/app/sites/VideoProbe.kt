@@ -127,6 +127,6 @@ object VideoProbe {
         val sorted = results.sortedByDescending { it.score }
         AppLog.i("Video yoklaması: " + sorted.joinToString(" | ") { (if (it.ok) "✓ " else "✗ ") + it.label })
         // Hiçbiri çalışmadıysa yine de sırayı bozmadan dene (yoklama engellenmiş olabilir)
-        if (sorted.none { it.ok }) results else sorted
+        if (sorted.none { it.ok }) results.sortedByDescending { it.video.isStream } else sorted
     }
 }

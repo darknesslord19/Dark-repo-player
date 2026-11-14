@@ -83,6 +83,11 @@ object SiteResolver {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) return AdBlock.empty
                     HeaderBook.put(u, req.requestHeaders)
+                    Passthrough.handle(req) { url, _, kind ->
+                        val ref = req.requestHeaders?.entries?.firstOrNull { it.key.equals("Referer", true) }?.value ?: currentPage
+                        val ua = req.requestHeaders?.entries?.firstOrNull { it.key.equals("User-Agent", true) }?.value
+                        main.post { onVideo(context, site, item, url, Sniff.headers(ref, ua ?: wv.settings.userAgentString, url), ref, kind) }
+                    }?.let { return it }
                     if (VideoSniffer.isVideo(u)) main.post { onVideo(context, site, item, u, req.requestHeaders ?: emptyMap(), currentPage) }
                     return null
                 }
@@ -143,7 +148,7 @@ object SiteResolver {
 
     private fun onVideo(context: Context, site: Site, item: SiteItem, url: String, req: Map<String, String>, page: String,
                         kindHint: String = "", subs: List<Pair<String, String>> = emptyList()) {
-        if (web == null) return
+        if (web == null || Sniff.isDecor(url, item.url)) return
         found.indexOfFirst { it.url == url }.takeIf { it >= 0 }?.let { i ->
             val v = found[i]
             if ((kindHint.isNotBlank() && !v.isStream) || (subs.isNotEmpty() && v.subs.isEmpty()))

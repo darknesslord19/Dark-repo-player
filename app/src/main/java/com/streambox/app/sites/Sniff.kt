@@ -120,6 +120,15 @@ object Sniff {
         var re = /https?:\\?\/\\?\/[^"'\s<>()]+?\.(m3u8|mp4|mkv|webm|mpd)(\?[^"'\s<>()]*)?/gi, m, n = 0;
         while ((m = re.exec(html)) && n < 20) { n++; var u = m[0].replace(/\\\//g, '/'); if (!/thumb|preview|trailer|fragman|sprite/i.test(u)) report(u, 'html', /m3u8/i.test(m[1]) ? 'hls' : (/mpd/i.test(m[1]) ? 'dash' : '')); }
       }
+      if (AUTO && !window.__dbxWatch && tries >= 2) {
+        // Detay sayfasındaki "Hemen İzle / İzle / 1. Bölüm" düğmesine bir kez bas
+        var cand = Array.prototype.slice.call(document.querySelectorAll('a, button'));
+        var w = cand.filter(function(e){
+          var t = (e.innerText || '').trim().toLowerCase();
+          return t.length < 30 && /^(▶\s*)?(hemen izle|şimdi izle|izlemeye başla|izle|filmi izle|bölümü izle|1\. bölüm|watch now|play now|watch|oynat)$/.test(t) && e.offsetParent !== null;
+        })[0];
+        if (w) { window.__dbxWatch = 1; try { w.click(); } catch(x) {} }
+      }
       if (AUTO && tries % 3 === 1) {
         ['.jw-display-icon-container','.vjs-big-play-button','.plyr__control--overlaid','.play-button','.btn-play','.play',
          '[class*=play-btn]','[class*=playbtn]','.fp-play','#play','.player-poster','[aria-label=Play]'].forEach(function(s){
@@ -164,6 +173,15 @@ object Sniff {
         }.onFailure { AppLog.e("Video yakalayıcı kurulamadı", it) }.getOrDefault(false)
     }
 
+    /** Sitenin kendi süs videosu mu (ör. /site.webm, /bg.mp4): aynı sitede, kök klasörde kısa dosya. */
+    fun isDecor(url: String, pageUrl: String): Boolean {
+        val u = Uri.parse(url); val p = Uri.parse(pageUrl)
+        fun root(h: String?) = (h ?: "").removePrefix("www.").split('.').takeLast(2).joinToString(".")
+        if (root(u.host) != root(p.host)) return false
+        val segs = u.pathSegments ?: return false
+        return segs.size <= 1 && Regex("(?i)\\.(webm|mp4)$").containsMatchIn(u.path ?: "")
+    }
+
     /** Video isteği için başlıklar: istendiği çerçeve Referer/Origin olur. */
     fun headers(page: String, ua: String?, cookieUrl: String): Map<String, String> {
         val h = mutableMapOf<String, String>()
@@ -171,6 +189,12 @@ object Sniff {
             h["Referer"] = page
             Uri.parse(page).let { u -> if (u.scheme != null && u.host != null) h["Origin"] = "${u.scheme}://${u.host}" }
         }
+        // Tarayıcı gibi görün (bazı video sunucuları bu başlıklar yoksa 404/403 döner)
+        h["Accept"] = "*/*"
+        h["Accept-Language"] = "tr-TR,tr;q=0.9,en;q=0.8"
+        h["Sec-Fetch-Dest"] = "empty"
+        h["Sec-Fetch-Mode"] = "cors"
+        h["Sec-Fetch-Site"] = if (Uri.parse(page).host == Uri.parse(cookieUrl).host) "same-origin" else "cross-site"
         ua?.let { h["User-Agent"] = it }
         // Tarayıcı bu adresi gerçekten istediyse onun gönderdiği başlıklar esas alınır
         HeaderBook.get(cookieUrl)?.forEach { (k, v) ->

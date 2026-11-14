@@ -116,6 +116,10 @@ class SiteBrowserActivity : AppCompatActivity() {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) { runOnUiThread { blocked++ }; return AdBlock.empty }
                     HeaderBook.put(u, req.requestHeaders)
+                    Passthrough.handle(req) { url, _, kind ->
+                        found(url, Sniff.headers(req.requestHeaders?.entries?.firstOrNull { it.key.equals("Referer", true) }?.value ?: pageUrl,
+                            req.requestHeaders?.entries?.firstOrNull { it.key.equals("User-Agent", true) }?.value, url), framed = true, kindHint = kind)
+                    }?.let { return it }
                     if (VideoSniffer.isVideo(u)) found(u, req.requestHeaders ?: emptyMap())
                     return null
                 }
@@ -165,6 +169,7 @@ class SiteBrowserActivity : AppCompatActivity() {
     /** Video adresi yakalandı: listeye ekle, gerekirse oynatmayı öner. */
     private fun found(url: String, reqHeaders: Map<String, String>, framed: Boolean = false, kindHint: String = "", subs: List<Pair<String, String>> = emptyList()) {
         runOnUiThread {
+            if (Sniff.isDecor(url, pageUrl)) return@runOnUiThread
             videos.indexOfFirst { it.url == url }.takeIf { it >= 0 }?.let { i ->
                 // Aynı video daha ayrıntılı bilgiyle geldiyse (tür / altyazı) güncelle
                 val v = videos[i]
