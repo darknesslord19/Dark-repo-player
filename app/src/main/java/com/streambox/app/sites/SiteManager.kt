@@ -155,7 +155,7 @@ object SiteManager {
     private val badLink = Regex("(?i)(/tag/|/category/|/kategori/|/tur/|/genre/|/yil/|/year/|/oyuncu/|/actor/|/author/|/page/|/feed|#|javascript:|/wp-login|/iletisim|/contact|facebook\\.|twitter\\.|instagram\\.|t\\.me/)")
 
     private fun imgSrc(img: Element): String? {
-        for (a in listOf("data-src", "data-lazy-src", "data-original", "data-srcset", "srcset", "src")) {
+        for (a in listOf("data-src", "data-lazy-src", "data-lazy", "data-original", "data-bg", "data-background", "data-image", "data-poster", "lazy-src", "data-srcset", "srcset", "src")) {
             val v = img.attr(a).trim()
             if (v.isBlank() || v.startsWith("data:")) continue
             val first = v.split(",").first().trim().split(" ").first()
@@ -179,6 +179,8 @@ object SiteManager {
         return t.replace(Regex("(?i)\\s*(izle|full hd|türkçe dublaj|altyazılı|hd)\\s*$"), "").trim().ifBlank { t }
     }
 
+    private fun root(h: String) = h.split('.').takeLast(2).joinToString(".")
+
     /** Sayfadaki "bağlantı + resim" çiftlerini afiş olarak toplar; başlıklara göre raflara ayırır. */
     fun extract(doc: Document): List<SiteRow> {
         val base = runCatching { URI(doc.location()).host?.removePrefix("www.") }.getOrNull()
@@ -195,9 +197,17 @@ object SiteManager {
                     val href = el.absUrl("href")
                     if (href.isBlank() || badLink.containsMatchIn(href) || href in seen) continue
                     val host = runCatching { URI(href).host?.removePrefix("www.") }.getOrNull()
-                    if (base != null && host != null && host != base) continue
-                    val img = el.selectFirst("img") ?: el.parent()?.takeIf { it.select("a").size == 1 }?.selectFirst("img")
-                    val poster = img?.let { imgSrc(it) } ?: el.selectFirst("[style*=url]")?.let { imgSrc(it) } ?: continue
+                    if (base != null && host != null && host != base && root(host) != root(base)) continue
+                    // Afiş bağlantının içinde, yanında ya da aynı kartın içinde olabilir
+                    fun oneLink(e: Element?) = e?.takeIf { c -> c.select("a[href]").map { it.absUrl("href") }.distinct().size == 1 }
+                    val img = el.selectFirst("img")
+                        ?: oneLink(el.parent())?.selectFirst("img")
+                        ?: oneLink(el.parent()?.parent())?.selectFirst("img")
+                    val bgEl = el.selectFirst("[style*=url], [data-bg], [data-background]")
+                        ?: oneLink(el.parent())?.selectFirst("[style*=url], [data-bg], [data-background]")
+                    val poster = img?.let { imgSrc(it) }
+                        ?: img?.parent()?.takeIf { it.tagName() == "picture" }?.selectFirst("source[srcset]")?.let { imgSrc(it) }
+                        ?: bgEl?.let { imgSrc(it) } ?: continue
                     val title = titleOf(el, img) ?: continue
                     seen += href
                     val card = el.parent() ?: el

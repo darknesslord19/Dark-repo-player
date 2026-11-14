@@ -198,8 +198,9 @@ class PlayerActivity : ComponentActivity() {
                     triedPlain = true
                     load(item.copy(kind = PlayItem.Kind.AUTO), resumePos()); return
                 }
-                // Siteden yakalanan videolar: açılmayanı geç, sıradakini dene
+                // Siteden yakalanan videolar: açılmayanı geç, sıradakini dene; hiçbiri olmazsa sitenin oynatıcısı
                 if (trySiteFallback("açılmadı")) return
+                if (isSiteItem(item) && items.size == 1 && openSitePlayer()) return
                 ui.error = when (error.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> if (item.live)
                         "Sunucu yayını reddetti. Hesabın süresi dolmuş ya da bağlantı sınırı aşılmış olabilir."
@@ -223,14 +224,26 @@ class PlayerActivity : ComponentActivity() {
     private val failedSite = HashSet<Int>()
     private var everReady = false
 
+    /** Hiçbir adres açılmadı: sayfayı sitenin kendi oynatıcısıyla (reklamlar engellenmiş) aç. */
+    private fun openSitePlayer(): Boolean {
+        val meta = runCatching { org.json.JSONObject(current().meta ?: return false) }.getOrNull() ?: return false
+        val page = meta.optString("url").takeIf { it.startsWith("http") } ?: return false
+        AppLog.i("Site videosu DarknesBox oynatıcısında açılamadı → sitenin oynatıcısı: $page")
+        android.widget.Toast.makeText(this, "Sitenin kendi oynatıcısında (reklamsız) açılıyor…", android.widget.Toast.LENGTH_LONG).show()
+        com.streambox.app.sites.SiteBrowserActivity.open(this, page, meta.optString("title"), meta.optString("poster").ifBlank { null }, native = true)
+        finish()
+        return true
+    }
+
     private fun isSiteItem(i: PlayItem) = i.meta?.contains("\"kind\":\"site\"") == true
 
     /** Siteden yakalanan birden çok adres varsa, açılmayanı atlayıp sıradakine geçer. */
     private fun trySiteFallback(why: String): Boolean {
         val item = current()
-        if (!isSiteItem(item) || items.size < 2) return false
+        if (!isSiteItem(item)) return false
+        if (items.size < 2) return openSitePlayer()
         failedSite += ui.index
-        val next = items.indices.firstOrNull { it !in failedSite } ?: return false
+        val next = items.indices.firstOrNull { it !in failedSite } ?: return openSitePlayer()
         AppLog.i("Site videosu $why (${item.label}), sıradaki deneniyor: ${items[next].label}")
         android.widget.Toast.makeText(this, "Kaynak açılmadı, sıradaki deneniyor…", android.widget.Toast.LENGTH_SHORT).show()
         playIndex(next)

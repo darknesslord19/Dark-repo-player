@@ -48,13 +48,21 @@ object VideoProbe {
         return if (m >= 60) "${m / 60} sa ${m % 60} dk" else if (m >= 1) "$m dk" else "${sec.toInt()} sn"
     }
 
-    private fun get(url: String, headers: Map<String, String>, range: Boolean): Triple<Int, String?, ByteArray>? = runCatching {
+    /**
+     * Range göndermeden ister (bazı sunucular Range'i reddeder ya da listeyi yarım verir), ilk 64 KB'ı okur;
+     * içerik yayın listesiyse tamamını (en çok 4 MB) okur. Büyük dosyada bağlantı erken kapatılır.
+     */
+    private fun get(url: String, headers: Map<String, String>, @Suppress("UNUSED_PARAMETER") range: Boolean): Triple<Int, String?, ByteArray>? = runCatching {
         val b = Request.Builder().url(url)
         headers.forEach { (k, v) -> if (!k.equals("Range", true)) b.header(k, v) }
-        if (range) b.header("Range", "bytes=0-65535")
         client.newCall(b.build()).execute().use { r ->
-            val total = r.header("Content-Range")?.substringAfterLast('/')?.toLongOrNull() ?: r.body?.contentLength()
-            val bytes = r.body?.source()?.let { src -> src.request(65536); src.buffer.readByteArray(minOf(src.buffer.size, 65536)) } ?: ByteArray(0)
+            val total = r.body?.contentLength()
+            val src = r.body?.source() ?: return@use Triple(r.code, "-1|", ByteArray(0))
+            src.request(65536)
+            val head = src.buffer.snapshot(minOf(src.buffer.size, 16).toInt()).utf8()
+            val bytes = if (head.startsWith("#EXTM3U") || head.contains("<MPD") || head.startsWith("<?xml")) {
+                src.request(4L * 1024 * 1024); src.buffer.readByteArray(minOf(src.buffer.size, 4L * 1024 * 1024))
+            } else src.buffer.readByteArray(minOf(src.buffer.size, 65536))
             Triple(r.code, (total ?: -1).toString() + "|" + (r.header("Content-Type") ?: ""), bytes)
         }
     }.getOrNull()

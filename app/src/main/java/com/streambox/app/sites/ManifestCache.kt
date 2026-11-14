@@ -82,3 +82,18 @@ class CachedManifestDataSource(private val upstream: DataSource) : DataSource {
         override fun createDataSource(): DataSource = CachedManifestDataSource(upstream.createDataSource())
     }
 }
+
+/** Tarayıcının video/liste isteklerinde gönderdiği gerçek başlıklar (Referer, Origin, özel başlıklar). */
+object HeaderBook {
+    private val map = object : LinkedHashMap<String, Map<String, String>>(64, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Map<String, String>>?) = size > 300
+    }
+    private val skip = setOf("range", "accept-encoding", "content-length", "host", "connection")
+
+    fun put(url: String, headers: Map<String, String>?) {
+        if (headers.isNullOrEmpty()) return
+        synchronized(map) { map[url.substringBefore('#')] = headers.filterKeys { it.lowercase() !in skip } }
+    }
+
+    fun get(url: String): Map<String, String>? = synchronized(map) { map[url.substringBefore('#')] }
+}

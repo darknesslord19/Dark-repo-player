@@ -82,6 +82,7 @@ object SiteResolver {
                 override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) return AdBlock.empty
+                    HeaderBook.put(u, req.requestHeaders)
                     if (VideoSniffer.isVideo(u)) main.post { onVideo(context, site, item, u, req.requestHeaders ?: emptyMap(), currentPage) }
                     return null
                 }

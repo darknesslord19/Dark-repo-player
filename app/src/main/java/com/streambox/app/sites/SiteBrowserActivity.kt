@@ -62,8 +62,10 @@ data class SniffedVideo(val url: String, val headers: Map<String, String>, val l
  */
 class SiteBrowserActivity : AppCompatActivity() {
     companion object {
-        fun open(context: Context, url: String, title: String? = null, poster: String? = null) {
+        /** [native]: sitenin kendi oynatıcısıyla izle (video bulundu penceresi çıkmaz, oynatıcı kendiliğinden başlar). */
+        fun open(context: Context, url: String, title: String? = null, poster: String? = null, native: Boolean = false) {
             val i = Intent(context, SiteBrowserActivity::class.java).putExtra("url", url).putExtra("title", title).putExtra("poster", poster)
+                .putExtra("native", native)
             if (context !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(i)
         }
@@ -79,6 +81,7 @@ class SiteBrowserActivity : AppCompatActivity() {
     private var customView by mutableStateOf<View?>(null)
     private var customCallback: WebChromeClient.CustomViewCallback? = null
     private var offeredFor: String? = null
+    private var native = false
     private lateinit var web: WebView
     private var poster: String? = null
 
@@ -112,6 +115,7 @@ class SiteBrowserActivity : AppCompatActivity() {
                 override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
                     val u = req.url.toString()
                     if (AdBlock.isAd(u)) { runOnUiThread { blocked++ }; return AdBlock.empty }
+                    HeaderBook.put(u, req.requestHeaders)
                     if (VideoSniffer.isVideo(u)) found(u, req.requestHeaders ?: emptyMap())
                     return null
                 }
@@ -149,7 +153,8 @@ class SiteBrowserActivity : AppCompatActivity() {
             }
         }
         // Tüm çerçevelerde (iframe oynatıcılar dahil) video adresini yakala
-        Sniff.install(web, auto = false) { hit ->
+        native = intent.getBooleanExtra("native", false)
+        Sniff.install(web, auto = native) { hit ->
             found(hit.url, Sniff.headers(hit.page.ifBlank { pageUrl }, web.settings.userAgentString, hit.url), framed = true, kindHint = hit.kind, subs = hit.subs)
         }
         web.loadUrl(start)
@@ -183,7 +188,7 @@ class SiteBrowserActivity : AppCompatActivity() {
             }
             val v = SniffedVideo(url, h, "$kind · ${siteOf(url)}", subs)
             videos += v
-            if (SiteManager.autoVideo && offeredFor != pageUrl && customView == null && (v.isStream || framed)) { offeredFor = pageUrl; offer = v }
+            if (!native && SiteManager.autoVideo && offeredFor != pageUrl && customView == null && (v.isStream || framed)) { offeredFor = pageUrl; offer = v }
         }
     }
 

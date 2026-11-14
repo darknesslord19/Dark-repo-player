@@ -172,6 +172,11 @@ object Sniff {
             Uri.parse(page).let { u -> if (u.scheme != null && u.host != null) h["Origin"] = "${u.scheme}://${u.host}" }
         }
         ua?.let { h["User-Agent"] = it }
+        // Tarayıcı bu adresi gerçekten istediyse onun gönderdiği başlıklar esas alınır
+        HeaderBook.get(cookieUrl)?.forEach { (k, v) ->
+            h.keys.firstOrNull { it.equals(k, true) }?.let { h.remove(it) }
+            h[k] = v
+        }
         android.webkit.CookieManager.getInstance().getCookie(cookieUrl)?.takeIf { it.isNotBlank() }?.let { h["Cookie"] = it }
         return h
     }

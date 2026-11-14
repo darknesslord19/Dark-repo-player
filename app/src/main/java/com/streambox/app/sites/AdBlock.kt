@@ -81,12 +81,13 @@ object VideoSniffer {
 /** Gizli tarayıcıda sayfayı açıp JavaScript ile oluşan HTML'i döndürür (Cloudflare/JS siteleri için). */
 object SiteRenderer {
     @SuppressLint("SetJavaScriptEnabled")
-    suspend fun render(context: Context, url: String, waitMs: Long = 3500): String? = withContext(kotlinx.coroutines.Dispatchers.Main) {
+    suspend fun render(context: Context, url: String, waitMs: Long = 4500): String? = withContext(kotlinx.coroutines.Dispatchers.Main) {
         val wv = WebView(context.applicationContext)
         try {
             wv.settings.javaScriptEnabled = true
             wv.settings.domStorageEnabled = true
             wv.settings.blockNetworkImage = true
+            wv.layout(0, 0, 1280, 2400)
             // Tarayıcının kendi kimliği: Cloudflare doğrulaması (cf_clearance) bu kimliğe bağlıdır
             android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
             withTimeoutOrNull(30_000) {
@@ -97,6 +98,8 @@ object SiteRenderer {
                             if (AdBlock.isAd(req.url.toString())) AdBlock.empty else null
                         override fun onPageFinished(view: WebView, u: String?) {
                             if (done) return
+                            // Tembel yüklenen afişler için sayfayı aşağı kaydır
+                            view.evaluateJavascript("window.scrollTo(0, document.body.scrollHeight/2); setTimeout(function(){window.scrollTo(0, document.body.scrollHeight)}, 800);", null)
                             view.postDelayed({
                                 // Cloudflare "bekleyin" sayfasıysa bir sonraki yüklemeyi bekle
                                 view.evaluateJavascript("document.title") { t ->
