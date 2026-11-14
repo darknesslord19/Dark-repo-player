@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Extension
@@ -140,7 +141,12 @@ private fun providerRepoMap(): Map<String, String> {
 fun HomeScreen() {
     val loadedCount = PluginManager.results.size
     val providers = remember(loadedCount) { CsBridge.providers().filter { it.hasMainPage } }
-    val selected = Settings.homeSource
+    val sitesOnly = com.streambox.app.BuildConfig.SITES_ONLY
+    // Darknes Siteler: kaynaklar yalnızca siteler; site yoksa karşılama ekranı
+    if (sitesOnly && com.streambox.app.sites.SiteManager.sites.isEmpty()) { SitesHomeScreen(); return }
+    val selected = Settings.homeSource.let { s ->
+        if (sitesOnly && com.streambox.app.sites.SiteManager.sites.none { "site:" + it.id == s }) "site:" + com.streambox.app.sites.SiteManager.sites.first().id else s
+    }
     val isNuvio = selected.startsWith("nuvio:")
     // Nuvio seçimleri TMDB kataloğunu kullanır (eklentiler TMDB kimliğiyle çalışır)
     val catalogKey = if (isNuvio) TMDB_SOURCE else selected
@@ -318,7 +324,8 @@ fun HomeScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Darknes", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
-            Text("Box", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Accent)
+            Text(if (com.streambox.app.BuildConfig.SITES_ONLY) "Siteler" else "Box", fontSize = 22.sp, fontWeight = FontWeight.Black,
+                color = if (com.streambox.app.BuildConfig.SITES_ONLY) Color(0xFFE50914) else Accent)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { Nav.tab(Route.Search) }) { Icon(Icons.Default.Search, "Ara", tint = Color.White) }
             SourcePill(sourceLabel, selected == TMDB_SOURCE || isNuvio || selected.startsWith("catalog:") || selected.startsWith("site:")) { picker = true }
@@ -412,6 +419,7 @@ private fun HeroButton(label: String, icon: androidx.compose.ui.graphics.vector.
 private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var category by remember { mutableIntStateOf(0) }
+    val so = com.streambox.app.BuildConfig.SITES_ONLY
     var query by remember { mutableStateOf("") }
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
     val repoOf = remember(providers) { providerRepoMap() }
@@ -428,28 +436,28 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
         com.streambox.app.remote.RemoteNav.Hook()
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(20.dp, 8.dp, 12.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Kaynak seç", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("${providers.size} kaynak", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(end = 8.dp))
+                Text(if (so) "Site seç" else "Kaynak seç", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(if (so) "${com.streambox.app.sites.SiteManager.sites.size} site" else "${providers.size} kaynak", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(end = 8.dp))
                 IconButton(onClick = onDismiss, modifier = Modifier.clip(CircleShape).background(Color(0xFF23262E))) {
                     Icon(Icons.Default.Close, "Kapat")
                 }
             }
-            OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text("Kaynak ara…") },
+            OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text(if (so) "Site ara…" else "Kaynak ara…") },
                 leadingIcon = { Icon(Icons.Default.Search, null) }, shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp))
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!so) LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(categories.size) { i ->
                     val count = if (i == 0) providers.size else providers.count { p -> p.supportedTypes.any { it.name in categories[i].second } }
                     Chip("${categories[i].first} $count", category == i) { category = i }
                 }
             }
             LazyColumn(Modifier.fillMaxWidth().height(520.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-                item {
+                if (!so) item {
                     SourceRow("Keşfet", "TMDB kataloğu · tüm Nuvio eklentileri", Icons.Default.Explore, selected == TMDB_SOURCE) { onPick(TMDB_SOURCE) }
                 }
                 // IPTV hesapları (Darknes IPTV'de "ana sayfada göster" açık olanlar)
                 val tvs = com.streambox.app.iptv.IptvStore.playlists.filter { it.onHome && (query.isBlank() || it.name.contains(query, true)) }
-                if (tvs.isNotEmpty() && (category == 0 || categories[category].first == "Canlı TV")) {
+                if (!so && tvs.isNotEmpty() && (category == 0 || categories[category].first == "Canlı TV")) {
                     item(key = "g-iptv") {
                         Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
@@ -485,7 +493,7 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                 }
                 // Stremio katalog eklentileri
                 val cats = CatalogManager.addons.filter { query.isBlank() || it.name.contains(query, true) }
-                if (cats.isNotEmpty() && category == 0) {
+                if (!so && cats.isNotEmpty() && category == 0) {
                     item(key = "g-catalog") {
                         Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
@@ -503,7 +511,7 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                 }
                 // Nuvio repoları: TMDB kataloğu + yalnızca o reponun eklentileriyle yayın arama
                 val nuvioRepos = NuvioRepoManager.repos.filter { query.isBlank() || it.name.contains(query, true) }
-                if (nuvioRepos.isNotEmpty() && category == 0) {
+                if (!so && nuvioRepos.isNotEmpty() && category == 0) {
                     item(key = "g-nuvio") {
                         Row(Modifier.fillMaxWidth().padding(20.dp, 16.dp, 20.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF23262E)), contentAlignment = Alignment.Center) {
@@ -548,6 +556,10 @@ private fun SourcePicker(providers: List<MainAPI>, selected: String, onDismiss: 
                     }
                 }
                 if (filtered.isEmpty() && providers.isNotEmpty()) item { Message("Bu filtrede kaynak yok") }
+                // Yeni site ekle
+                item(key = "add-site") {
+                    SourceRow("Site ekle", "Adres yaz; afişler otomatik çekilir", Icons.Default.Add, false) { onDismiss(); Nav.go(Route.SettingsPage("sites")) }
+                }
             }
         }
     }

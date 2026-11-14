@@ -122,7 +122,7 @@ private fun Root() {
         // Ana sayfa vitrini durum çubuğunun altına uzanır; diğer ekranlar onun altından başlar
         Box(if (route == Route.Home) m else m.statusBarsPadding()) {
             when (route) {
-                Route.Home -> if (BuildConfig.SITES_ONLY) com.streambox.app.ui.SitesHomeScreen() else HomeScreen()
+                Route.Home -> HomeScreen()
                 Route.Search -> SearchScreen()
                 Route.Iptv -> IptvScreen()
                 Route.Extensions -> ExtensionsScreen()
